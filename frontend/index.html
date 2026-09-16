@@ -1,3 +1,32 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VisionHive</title><link rel="stylesheet" href="/frontend/styles.css"></head><body>
-<header><div><span class="mark">VH</span><strong>VisionHive</strong><small>Multi-camera occupancy intelligence</small></div><span id="status">Connecting</span></header>
-<main><section class="hero"><p>Stages 1–10</p><h1>Live vision pipeline</h1><span>Video → detection → tracking → activity → fusion → zone loads → environment</span></section><section class="grid"><article><h2>Thermal zones</h2><div id="zones" class="zones"></div></article></section><section class="fusion-panel"><h2>Fused occupancy</h2><div id="fusion-status">No camera-pair overlap configured — tracks remain separate.</div></section><section class="environment-panel"><h2>Room location and environment</h2><form id="location-form"><input id="location-query" placeholder="City, Country — e.g. Pune, India" required><button>Set room location</button></form><div class="environment-actions"><button id="weather-refresh" type="button">Refresh live weather</button><button id="indoor-load" type="button">Load occupancy dataset reading</button></div><div id="environment-status">No room location or environmental reading loaded.</div></section><section class="camera-panel"><div class="panel-head"><div><h2>Camera activity</h2><span>Choose each camera's primary coverage zone.</span></div></div><div id="cameras" class="empty">Awaiting camera streams…</div></section></main><script src="/frontend/app.js"></script></body></html>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VisionHive</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/frontend/styles.css"></head><body>
+<header><div><span class="mark">VH</span><strong>VisionHive</strong></div><span id="status">Connecting</span></header>
+<main>
+
+<section class="environment-panel">
+<form id="location-form"><input id="location-query" placeholder="Site location, e.g. Pune, India" required><button>Set</button></form>
+<div class="environment-actions"><button id="weather-refresh" type="button">Refresh weather</button><button id="indoor-load" type="button">Indoor dataset</button></div>
+<div id="environment-status">No location set.</div>
+</section>
+
+<div class="grid">
+
+<section class="camera-panel">
+<h2>Cameras</h2>
+<div id="cameras" class="empty">Awaiting camera streams…</div>
+</section>
+
+<aside class="side">
+<section class="fusion-panel">
+<h2>Fused occupancy</h2>
+<div id="fusion-status">No cross-camera overlap configured.</div>
+</section>
+
+<article class="zones-panel">
+<h2>Zones</h2>
+<div id="zones" class="zones"></div>
+</article>
+</aside>
+
+</div>
+</main>
+<script src="/frontend/app.js"></script></body></html>
