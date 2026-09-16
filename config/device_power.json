@@ -1,0 +1,26 @@
+{
+  "notes": "All wattages are configurable planning assumptions, not universal measured values. Set them to match the actual room equipment before using heat-load calculations.",
+  "class_to_device_type": {
+    "laptop": "laptop",
+    "tv": "monitor",
+    "computer": "desktop_pc",
+    "server": "server",
+    "cell phone": "phone"
+  },
+  "power_assumptions_w": {
+    "laptop": 65,
+    "monitor": 35,
+    "desktop_pc": 180,
+    "server": 350,
+    "phone": 5,
+    "light": 18
+  },
+  "manual_devices": [],
+  "lights": [
+  {
+    "zone_id": "zone-4",
+    "power_w": 18,
+    "is_on": true
+  }
+]
+}

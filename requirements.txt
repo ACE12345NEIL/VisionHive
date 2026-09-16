@@ -1,0 +1,7 @@
+fastapi>=0.115,<1
+uvicorn[standard]>=0.30,<1
+opencv-python>=4.10,<5
+numpy>=1.26,<3
+pydantic>=2.8,<3
+# Optional production detector/tracker:
+# ultralytics>=8.3,<9

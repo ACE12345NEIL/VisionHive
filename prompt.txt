@@ -1,0 +1,882 @@
+I am building a software-only Image and Video Processing project called: VisionHive- “Real-Time Multi-Camera Occupancy and Activity-Aware HVAC Control Using Image and Video Processing”
+
+The project should eventually become a Digital Twin-enabled adaptive HVAC system for a single room.
+
+The system must be completely software-based. No physical CCTV, AC, sensors, ESP32, Arduino or other hardware is required for the core project.
+
+IMPORTANT:
+Build the system progressively in clearly defined stages.
+
+Do NOT start with simulation or Digital Twin.
+
+The first stages must build the actual computer vision, environmental modelling, thermal modelling, ML and HVAC-control pipeline using real datasets/video inputs.
+
+Simulation and Digital Twin development must be the FINAL major stage, after the core system is already functional.
+
+TECHNOLOGY STACK:
+
+Backend:
+• Python
+• FastAPI
+• WebSockets
+
+Computer Vision:
+• OpenCV
+• YOLO / Ultralytics
+• ByteTrack or BoT-SORT
+• NumPy
+
+Machine Learning:
+• Pandas
+• scikit-learn
+• XGBoost
+• PyTorch if required
+
+Database:
+• SQLite initially
+• Architecture should allow PostgreSQL later
+
+Frontend:
+• Lightweight HTML/CSS/JavaScript frontend
+• Use a fast visualization/charting library where useful
+• Do NOT use Streamlit
+
+The frontend should be modern, visually clean and extremely fast.
+
+STAGE 1 — PROJECT FOUNDATION
+
+Create the basic software architecture.
+
+Implement:
+
+• FastAPI backend
+• Lightweight frontend
+• WebSocket communication
+• SQLite database
+• Configuration system
+• Logging
+• Basic room definition
+• Thermal-zone definition
+• Dataset management structure
+
+Define one virtual room divided into multiple thermal zones.
+
+Initially use four zones.
+
+Create common data structures for:
+
+• Room
+• Zone
+• Person
+• Device
+• Light
+• Window
+• Door
+• HVAC
+• Environment
+
+Do not implement the Digital Twin yet.
+
+STAGE 2 — IMAGE AND VIDEO INPUT
+
+Implement the camera/video subsystem.
+
+Support:
+
+• Multiple prerecorded videos
+• Webcam input
+• Image sequences
+• Multiple simultaneous camera feeds
+
+Initially support 2–4 cameras.
+
+Implement:
+
+• Frame extraction
+• Frame resizing
+• FPS control
+• Frame buffering
+• Basic image preprocessing
+
+Use OpenCV.
+
+Demonstrate relevant Image Processing concepts such as:
+
+• RGB
+• Grayscale
+• Resolution
+• Gaussian filtering
+• Median filtering
+• Contrast enhancement
+• Histogram processing
+
+The output should be a working multi-camera processing system.
+
+STAGE 3 — PERSON AND OBJECT DETECTION
+
+Implement YOLO-based detection.
+
+Detect at minimum:
+
+• Person
+• Laptop
+• Computer
+• Monitor
+• Cell phone where useful
+• Server where available
+• Other relevant equipment
+
+Every detection should contain:
+
+• Camera ID
+• Class
+• Confidence
+• Bounding box
+• Center coordinates
+• Timestamp
+
+Create a standardized internal detection format.
+
+STAGE 4 — PERSON TRACKING
+
+Implement multi-frame tracking.
+
+Use:
+
+• ByteTrack
+or
+• BoT-SORT
+
+Track:
+
+• Person ID
+• Position
+• Velocity
+• Camera ID
+• Time detected
+• Trajectory
+
+The same person should retain a consistent tracking ID within a camera.
+
+STAGE 5 — ACTIVITY AND MOTION ANALYSIS
+
+Determine how active each detected person is.
+
+Use Image and Video Processing techniques such as:
+
+• Frame differencing
+• Optical flow
+• Motion estimation
+• Bounding-box displacement
+• Temporal analysis
+
+Classify activity into a simple scale:
+
+0 = Stationary
+1 = Low
+2 = Medium
+3 = High
+
+Where useful, evaluate a dedicated human activity-recognition model using the Human Activity Recognition video dataset.
+
+STAGE 6 — MULTI-CAMERA FUSION
+
+Combine information from multiple cameras.
+
+The system must prevent double-counting.
+
+If Camera 1 and Camera 2 observe the same person, the system should identify them as one person.
+
+Initially implement:
+
+• Overlapping ROI matching
+• Spatial proximity
+• Bounding-box characteristics
+• Temporal consistency
+
+Then implement a more advanced method using:
+
+• Camera calibration
+• Homography
+• Common room coordinates
+
+All camera detections should eventually be mapped to a common room coordinate system.
+
+STAGE 7 — THERMAL-ZONE ASSIGNMENT
+
+Map every detected person and device to a thermal zone.
+
+Each zone should maintain:
+
+• People count
+• Person locations
+• Activity levels
+• Device count
+• Device load
+• Lighting load
+• Temperature
+• Humidity
+
+Example:
+
+Zone 1:
+people = 2
+activity = medium
+device_load = 400 W
+
+Zone 2:
+people = 0
+device_load = 100 W
+
+The system must update these values continuously.
+
+STAGE 8 — DEVICE AND LIGHTING ANALYSIS
+
+Use computer vision to detect relevant equipment.
+
+Track:
+
+• PC count
+• Laptop count
+• Monitor count
+• Server count
+• Machine count
+• Light count
+
+Create a configurable device-power database.
+
+For example, each device type can have:
+
+• Device type
+• Estimated power
+• Zone
+• ON/OFF state
+
+Calculate:
+
+human_heat_load
+device_heat_load
+lighting_heat_load
+
+Do not treat assumed device power values as universal real-world values. Clearly mark them as configurable assumptions.
+
+STAGE 9 — ENVIRONMENTAL DATA
+
+Integrate indoor environmental data.
+
+Use datasets containing:
+
+• Indoor temperature
+• Indoor humidity
+• CO2
+• Light
+• Sound where available
+• PIR where available
+• Occupancy
+
+Normalize the data into a common internal schema.
+
+The primary internal environmental format should contain:
+
+timestamp
+indoor_temperature
+indoor_humidity
+indoor_co2
+indoor_light
+occupancy
+
+STAGE 10 — OUTDOOR WEATHER
+
+Integrate outdoor environmental conditions.
+
+Use:
+
+• Outdoor temperature
+• Outdoor humidity
+• Rain
+• Wind
+• Solar radiation
+
+For the live system, use a weather API.
+
+For model training, use historical weather/environmental datasets.
+
+The system must distinguish:
+
+• Real API data
+• Historical dataset data
+• Simulated data
+
+STAGE 11 — HVAC DATA AND BEHAVIOUR
+
+Integrate HVAC datasets.
+
+Extract relevant variables such as:
+
+timestamp
+on_off
+damper
+active_energy
+active_power
+ambient_humidity
+outside_temp
+inlet_temp
+outlet_temp
+summer_SP_temp
+winter_SP_temp
+ambient_temp
+
+Use this data to understand relationships between:
+
+• HVAC state
+• Setpoint
+• Indoor temperature
+• Outdoor temperature
+• Humidity
+• HVAC power
+
+Do not attempt to use every available HVAC column.
+
+STAGE 12 — HEAT-LOAD MODEL
+
+Create the first thermal/heat-load model.
+
+For each zone calculate:
+
+• Human heat
+• Device heat
+• Lighting heat
+• Solar heat
+• Outdoor heat transfer
+• Window heat gain
+• Door effects
+
+Create a zone-level heat-load value.
+
+The model should be transparent and interpretable.
+
+STAGE 13 — THERMAL RESPONSE MODEL
+
+Model how room temperature changes over time.
+
+For each zone consider:
+
+• Current temperature
+• Historical temperature
+• Heat load
+• Outdoor temperature
+• Outdoor humidity
+• Solar radiation
+• Window state
+• Door state
+• HVAC state
+• HVAC setpoint
+• Fan speed
+• Airflow direction
+• Thermal coupling between zones
+
+The initial model can be physics-inspired.
+
+The purpose is to understand how the room responds to different conditions before applying ML.
+
+STAGE 14 — CREATE THE PROJECT DATASET
+
+Combine the different data sources into a unified time-series dataset.
+
+The main dataset should contain fields such as:
+
+timestamp
+zone_id
+zone_temperature
+zone_humidity
+
+people_count
+activity_level
+human_heat_load_w
+
+pc_count
+laptop_count
+server_count
+machine_count
+device_heat_load_w
+
+light_count
+light_load_w
+
+window_state
+door_state
+louver_angle
+
+outdoor_temperature
+outdoor_humidity
+solar_radiation
+wind_speed
+rainfall
+
+ac_state
+ac_setpoint
+ac_fan_speed
+ac_mode
+ac_louver_angle
+
+hvac_power_w
+
+temperature_15min_future
+temperature_30min_future
+temperature_60min_future
+
+This becomes the primary dataset for the project's thermal ML model.
+
+STAGE 15 — MACHINE LEARNING
+
+Train models to predict future temperature.
+
+Possible models:
+
+• Random Forest
+• Gradient Boosting
+• XGBoost
+• Neural Network
+
+Input:
+
+• Current temperature
+• Humidity
+• Occupancy
+• Activity
+• Human heat
+• Device heat
+• Lighting
+• Weather
+• Window state
+• Door state
+• HVAC state
+• HVAC setpoint
+• Fan speed
+• Louver angle
+• Historical temperature
+
+Output:
+
+• Temperature after 15 minutes
+• Temperature after 30 minutes
+• Temperature after 60 minutes
+
+Compare models using appropriate regression metrics.
+
+Do not assume one model is automatically superior.
+
+STAGE 16 — ENERGY PREDICTION
+
+Build an energy-consumption model.
+
+Predict:
+
+• HVAC power
+• HVAC energy
+• Total room energy
+
+Use relevant HVAC and building-energy datasets.
+
+The model should help estimate the energy consequences of different HVAC settings.
+
+STAGE 17 — HVAC CONTROL ENGINE
+
+Build the actual decision-making layer.
+
+Inputs:
+
+• Current zone temperatures
+• Predicted zone temperatures
+• Occupancy
+• Activity
+• Device heat
+• Lighting
+• Weather
+• Window/door state
+• HVAC state
+• Energy prediction
+
+Outputs:
+
+• AC ON/OFF
+• Temperature setpoint
+• Fan speed
+• AC mode
+• Louver direction
+
+The controller should consider:
+
+• Thermal comfort
+• Energy consumption
+• Zone requirements
+
+Do not simply maintain the lowest possible temperature.
+
+STAGE 18 — REAL-TIME INTEGRATION
+
+Connect all completed modules.
+
+The real-time pipeline should be:
+
+Video
+→ Image Processing
+→ Object Detection
+→ Tracking
+→ Activity
+→ Multi-Camera Fusion
+→ Zone Assignment
+→ Heat Load
+→ Environmental Data
+→ Thermal Model
+→ ML Prediction
+→ HVAC Controller
+→ Dashboard
+
+At this stage, the system should work without simulation.
+
+It should process real video/data inputs and produce HVAC recommendations.
+
+STAGE 19 — PERFORMANCE OPTIMIZATION
+
+Optimize the complete pipeline before beginning Digital Twin development.
+
+Focus on:
+
+• Video-processing latency
+• ML inference speed
+• Memory usage
+• WebSocket performance
+• Backend responsiveness
+• Frame skipping where appropriate
+• Asynchronous processing
+• Background workers/processes
+• Efficient database operations
+• Efficient frontend rendering
+
+The application should feel real-time.
+
+Do not send unnecessary full-resolution frames through the backend.
+
+Keep the frontend lightweight.
+
+STAGE 20 — FINAL SIMULATION ENGINE
+
+ONLY AFTER THE ABOVE SYSTEM IS WORKING, introduce the simulation engine.
+
+The simulation engine should reproduce the same inputs that would normally come from cameras, sensors, weather services and HVAC systems.
+
+Allow the user to simulate:
+
+• Adding/removing people
+• Changing people between zones
+• Changing activity
+• Turning PCs on/off
+• Changing server load
+• Turning lights on/off
+• Opening/closing windows
+• Opening/closing doors
+• Changing louver position
+• Changing outdoor temperature
+• Changing outdoor humidity
+• Changing solar radiation
+• Simulating rain
+• Changing AC setpoint
+• Changing fan speed
+• Changing AC mode
+• Changing airflow direction
+• Increasing device heat
+• Sudden occupancy changes
+• AC failure
+• Different thermal properties
+
+The simulation engine must use the same internal data structures as the real system wherever possible.
+
+This allows the system to switch between:
+
+REAL INPUT MODE
+
+and
+
+SIMULATION MODE
+
+without rewriting the core HVAC/ML pipeline.
+
+STAGE 21 — DIGITAL TWIN
+
+After the simulation engine is working, build the Digital Twin.
+
+The Digital Twin should represent the virtual room and its current state.
+
+It should contain:
+
+• Room geometry
+• Thermal zones
+• People
+• Devices
+• Lights
+• Windows
+• Doors
+• Environmental conditions
+• HVAC
+• Thermal state
+• Energy state
+
+The Digital Twin must be dynamic.
+
+Its state should continuously update based on:
+
+• Camera observations
+• Environmental data
+• HVAC state
+• ML predictions
+• Simulation inputs
+
+The Digital Twin should represent both the current state and predicted future state.
+
+STAGE 22 — DIGITAL TWIN + WHAT-IF ANALYSIS
+
+Add interactive scenario testing.
+
+The user should be able to change a condition in the Digital Twin.
+
+For example:
+
+People in Zone 3:
+2 → 8
+
+The system should calculate:
+
+• New occupancy
+• New human heat
+• New zone heat load
+• Predicted temperature
+• Effect on neighbouring zones
+• Cooling requirement
+• Recommended HVAC settings
+• Estimated energy impact
+
+Other examples:
+
+Window:
+Closed → Open
+
+AC:
+24°C → 22°C
+
+Fan:
+Medium → High
+
+Device load:
+500 W → 2000 W
+
+Outdoor temperature:
+30°C → 38°C
+
+Solar radiation:
+300 W/m² → 800 W/m²
+
+The Digital Twin should show how the system responds to these changes.
+
+STAGE 23 — DIGITAL TWIN SCENARIO COMPARISON
+
+Allow users to compare different scenarios.
+
+For example:
+
+Scenario A:
+Normal occupancy
+
+Scenario B:
+High occupancy
+
+Scenario C:
+High occupancy + high device load
+
+Scenario D:
+High occupancy + open window
+
+Compare:
+
+• Zone temperatures
+• Predicted cooling demand
+• HVAC settings
+• Energy consumption
+• Comfort
+• Temperature evolution
+
+The purpose is to demonstrate the usefulness of the Digital Twin for what-if analysis.
+
+STAGE 24 — FINAL FRONTEND
+
+Build the final high-performance dashboard.
+
+The frontend should display:
+
+• Multiple camera feeds
+• Detected people
+• Person IDs
+• Activity
+• Room map
+• Thermal zones
+• Zone temperatures
+• Occupancy
+• Device heat load
+• Indoor environment
+• Outdoor weather
+• HVAC state
+• ML predictions
+• Energy consumption
+• HVAC recommendations
+• Digital Twin state
+• Simulation controls
+• What-if analysis
+
+Use lightweight real-time communication through FastAPI/WebSockets.
+
+The interface should be visually polished but prioritize speed over unnecessary animations or heavy UI components.
+
+STAGE 25 — FINAL EVALUATION
+
+Evaluate the complete system using predefined scenarios.
+
+Evaluate:
+
+Computer Vision:
+• Detection accuracy
+• Tracking consistency
+• Multi-camera duplicate handling
+• Activity recognition
+
+Thermal Model:
+• Temperature prediction error
+• Zone response
+• Thermal coupling
+
+ML:
+• MAE
+• RMSE
+• R² where appropriate
+
+HVAC:
+• Predicted energy
+• Temperature stability
+• Comfort constraint satisfaction
+
+System:
+• Processing latency
+• FPS
+• API response time
+• Memory usage
+
+Simulation/Digital Twin:
+• Correct propagation of scenario changes
+• Consistency between simulated inputs and model outputs
+• Ability to reproduce different room conditions
+
+FINAL PROJECT STRUCTURE:
+
+backend/
+FastAPI
+APIs
+WebSockets
+database
+real-time manager
+
+vision/
+preprocessing
+detection
+tracking
+activity
+camera_fusion
+calibration
+
+environment/
+indoor_data
+weather
+sensors
+
+thermal/
+heat_load
+thermal_model
+zone_model
+
+hvac/
+hvac_model
+controller
+energy_model
+
+ml/
+preprocessing
+feature_engineering
+training
+prediction
+evaluation
+
+simulation/
+scenario_engine
+environment_simulation
+occupancy_simulation
+device_simulation
+hvac_simulation
+thermal_simulation
+
+digital_twin/
+room
+zones
+people
+devices
+environment
+hvac
+state
+predictions
+
+frontend/
+dashboard
+cameras
+room_view
+thermal_map
+charts
+controls
+simulation
+
+data/
+raw
+processed
+models
+database
+
+IMPORTANT DEVELOPMENT PRINCIPLE:
+
+Do not build the entire project at once.
+
+Each stage must produce a working component before moving to the next stage.
+
+The project should first become a functional real-data computer-vision + thermal + ML + HVAC system.
+
+Only after that should simulation be introduced.
+
+Only after simulation should the Digital Twin be developed.
+
+The final Digital Twin should then use the already-developed real system, models and simulation engine to provide a dynamic virtual representation and what-if analysis.
+
+The final project should demonstrate:
+
+Image Processing
+→ Video Processing
+→ Computer Vision
+→ Multi-Camera Fusion
+→ Occupancy Detection
+→ Activity Detection
+→ Thermal-Zone Mapping
+→ Heat-Load Estimation
+→ Environmental Modelling
+→ Thermal Modelling
+→ Machine Learning
+→ HVAC Control
+→ Energy Analysis
+→ Simulation
+→ Digital Twin
+→ What-If Analysis
+
+The system must clearly distinguish between real observations, historical dataset values, simulated values, ML predictions and Digital Twin state.

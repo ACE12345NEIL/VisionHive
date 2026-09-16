@@ -1,0 +1,6 @@
+{
+  "room": {"id": "room-01", "name": "VisionHive Lab", "width_m": 8.0, "height_m": 6.0},
+  "processing": {"width": 960, "target_fps": 8, "buffer_size": 3, "preprocessing": "contrast"},
+  "detector": {"enabled": true, "model": "yolo11n.pt", "confidence": 0.35, "classes": ["person", "laptop", "tv", "cell phone"]},
+  "tracker": {"max_distance_px": 100, "max_missing_frames": 20, "trajectory_size": 40}
+}

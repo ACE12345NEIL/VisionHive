@@ -1,0 +1,23 @@
+[
+  {
+    "id": "camera-1",
+    "name": "Office Entrance 1",
+    "source_type": "video",
+    "source": "data/raw/testing-videos/office-entrance.mp4",
+    "enabled": false
+  },
+  {
+    "id": "camera-2",
+    "name": "Office Entrance 2",
+    "source_type": "video",
+    "source": "data/raw/testing-videos/office-desk.mp4",
+    "enabled": false
+  },
+  {
+    "id": "camera-3",
+    "name": "Office Small",
+    "source_type": "video",
+    "source": "data/raw/testing-videos/office-cctv-small.mp4",
+    "enabled": true
+  }
+]
