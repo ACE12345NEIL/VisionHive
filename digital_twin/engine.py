@@ -33,79 +33,144 @@ ZONE_VENT_POSITIONS = {
 # Central return air grille at ceiling
 RETURN_AIR_GRILLE = {'id': 'return-grille-1', 'x': 4.0, 'y': 3.0, 'z': 3.0, 'size_m': 0.8}
 
-# Physical architectural apertures
+# Default base architectural elements
+DEFAULT_WINDOWS = [
+    {'id': 'win-1', 'zone_id': 'zone-1', 'wall': 'north', 'x1': 1.0, 'y1': 0.0, 'x2': 3.5, 'y2': 0.0, 'z_bottom': 1.0, 'z_top': 2.3, 'width_m': 2.5},
+    {'id': 'win-2', 'zone_id': 'zone-2', 'wall': 'north', 'x1': 4.5, 'y1': 0.0, 'x2': 7.0, 'y2': 0.0, 'z_bottom': 1.0, 'z_top': 2.3, 'width_m': 2.5},
+    {'id': 'win-3', 'zone_id': 'zone-3', 'wall': 'west',  'x1': 0.0, 'y1': 3.8, 'x2': 0.0, 'y2': 5.2, 'z_bottom': 1.0, 'z_top': 2.3, 'width_m': 1.4},
+    {'id': 'win-4', 'zone_id': 'zone-4', 'wall': 'south', 'x1': 4.8, 'y1': 6.0, 'x2': 6.8, 'y2': 6.0, 'z_bottom': 1.0, 'z_top': 2.3, 'width_m': 2.0},
+]
+
+DEFAULT_DOORS = [
+    {'id': 'door-1', 'zone_id': 'zone-1', 'wall': 'west', 'x1': 0.0, 'y1': 1.0, 'x2': 0.0, 'y2': 2.0, 'z_bottom': 0.0, 'z_top': 2.1, 'width_m': 1.0},
+    {'id': 'door-2', 'zone_id': 'zone-4', 'wall': 'east', 'x1': 8.0, 'y1': 4.2, 'x2': 8.0, 'y2': 5.2, 'z_bottom': 0.0, 'z_top': 2.1, 'width_m': 1.0},
+]
+
 ARCHITECTURAL_ELEMENTS = {
-    'windows': [
-        {'id': 'win-1', 'zone_id': 'zone-1', 'wall': 'north', 'x1': 1.0, 'y1': 0.0, 'x2': 3.5, 'y2': 0.0, 'z_bottom': 1.0, 'z_top': 2.3, 'width_m': 2.5},
-        {'id': 'win-2', 'zone_id': 'zone-2', 'wall': 'north', 'x1': 4.5, 'y1': 0.0, 'x2': 7.0, 'y2': 0.0, 'z_bottom': 1.0, 'z_top': 2.3, 'width_m': 2.5},
-        {'id': 'win-3', 'zone_id': 'zone-3', 'wall': 'west',  'x1': 0.0, 'y1': 3.8, 'x2': 0.0, 'y2': 5.2, 'z_bottom': 1.0, 'z_top': 2.3, 'width_m': 1.4},
-        {'id': 'win-4', 'zone_id': 'zone-4', 'wall': 'south', 'x1': 4.8, 'y1': 6.0, 'x2': 6.8, 'y2': 6.0, 'z_bottom': 1.0, 'z_top': 2.3, 'width_m': 2.0},
-    ],
-    'doors': [
-        {'id': 'door-1', 'zone_id': 'zone-1', 'wall': 'west', 'x1': 0.0, 'y1': 1.0, 'x2': 0.0, 'y2': 2.0, 'z_bottom': 0.0, 'z_top': 2.1, 'width_m': 1.0},
-        {'id': 'door-2', 'zone_id': 'zone-4', 'wall': 'east', 'x1': 8.0, 'y1': 4.2, 'x2': 8.0, 'y2': 5.2, 'z_bottom': 0.0, 'z_top': 2.1, 'width_m': 1.0},
-    ],
-    'workstations': [
-        {'id': 'desk-1', 'zone_id': 'zone-1', 'x': 1.8, 'y': 1.6, 'width_m': 1.4, 'length_m': 0.8},
-        {'id': 'desk-2', 'zone_id': 'zone-2', 'x': 5.8, 'y': 1.6, 'width_m': 1.4, 'length_m': 0.8},
-        {'id': 'desk-3', 'zone_id': 'zone-3', 'x': 1.8, 'y': 4.4, 'width_m': 1.4, 'length_m': 0.8},
-        {'id': 'desk-4', 'zone_id': 'zone-4', 'x': 5.8, 'y': 4.4, 'width_m': 1.4, 'length_m': 0.8},
-    ]
+    'windows': list(DEFAULT_WINDOWS),
+    'doors': list(DEFAULT_DOORS),
+    'workstations': []
+}
+
+ZONE_QUADRANT_BOUNDS = {
+    'zone-1': {'x_min': 0.8, 'x_max': 3.2, 'y_min': 0.8, 'y_max': 2.2},
+    'zone-2': {'x_min': 4.8, 'x_max': 7.2, 'y_min': 0.8, 'y_max': 2.2},
+    'zone-3': {'x_min': 0.8, 'x_max': 3.2, 'y_min': 3.8, 'y_max': 5.2},
+    'zone-4': {'x_min': 4.8, 'x_max': 7.2, 'y_min': 3.8, 'y_max': 5.2},
 }
 
 
-def _apply_layout_overrides() -> None:
-    """
-    Load config/room_layout.json and patch ZONE_VENT_POSITIONS + ARCHITECTURAL_ELEMENTS
-    with any saved drag-and-drop overrides. Called once at module import.
-    """
+def _load_raw_layout_config() -> dict:
     import json as _json
     import pathlib as _pathlib
     layout_path = _pathlib.Path(__file__).parent.parent / 'config' / 'room_layout.json'
     if not layout_path.exists():
-        return
+        return {}
     try:
-        layout = _json.loads(layout_path.read_text())
+        return _json.loads(layout_path.read_text())
     except Exception:
+        return {}
+
+
+def _apply_layout_overrides() -> None:
+    """
+    Load config/room_layout.json and patch ARCHITECTURAL_ELEMENTS
+    with any saved additions, removals, or position overrides.
+    """
+    layout = _load_raw_layout_config()
+    if not layout:
+        ARCHITECTURAL_ELEMENTS['windows'] = list(DEFAULT_WINDOWS)
+        ARCHITECTURAL_ELEMENTS['doors'] = list(DEFAULT_DOORS)
         return
 
-    # Patch vent positions
-    vent_overrides = layout.get('vents', {})
-    for zone_vents in ZONE_VENT_POSITIONS.values():
-        for vent in zone_vents:
-            if vent['id'] in vent_overrides:
-                ov = vent_overrides[vent['id']]
-                vent['x'] = ov.get('x', vent['x'])
-                vent['y'] = ov.get('y', vent['y'])
+    # 1. Process Windows
+    win_data = layout.get('windows', {})
+    if isinstance(win_data, dict):
+        new_windows = []
+        for win_id, w_info in win_data.items():
+            # Find default template if exists, else construct
+            base_w = next((w for w in DEFAULT_WINDOWS if w['id'] == win_id), None)
+            zone_id = w_info.get('zone_id') or (base_w['zone_id'] if base_w else 'zone-1')
+            wall = w_info.get('wall') or (base_w['wall'] if base_w else 'north')
+            width_m = w_info.get('width_m') or (base_w['width_m'] if base_w else 2.0)
+            x1 = w_info.get('x1', base_w['x1'] if base_w else 1.0)
+            y1 = w_info.get('y1', base_w['y1'] if base_w else 0.0)
+            x2 = w_info.get('x2', base_w['x2'] if base_w else 3.0)
+            y2 = w_info.get('y2', base_w['y2'] if base_w else 0.0)
 
-    # Patch window positions
-    win_overrides = layout.get('windows', {})
-    for win in ARCHITECTURAL_ELEMENTS.get('windows', []):
-        if win['id'] in win_overrides:
-            ov = win_overrides[win['id']]
-            for k in ('x1', 'y1', 'x2', 'y2'):
-                if k in ov:
-                    win[k] = ov[k]
+            new_windows.append({
+                'id': win_id,
+                'zone_id': zone_id,
+                'wall': wall,
+                'x1': x1, 'y1': y1,
+                'x2': x2, 'y2': y2,
+                'z_bottom': 1.0, 'z_top': 2.3,
+                'width_m': width_m
+            })
+        ARCHITECTURAL_ELEMENTS['windows'] = new_windows
 
-    # Patch door positions
-    door_overrides = layout.get('doors', {})
-    for door in ARCHITECTURAL_ELEMENTS.get('doors', []):
-        if door['id'] in door_overrides:
-            ov = door_overrides[door['id']]
-            for k in ('x1', 'y1', 'x2', 'y2'):
-                if k in ov:
-                    door[k] = ov[k]
+    # 2. Process Doors
+    door_data = layout.get('doors', {})
+    if isinstance(door_data, dict):
+        new_doors = []
+        for door_id, d_info in door_data.items():
+            base_d = next((d for d in DEFAULT_DOORS if d['id'] == door_id), None)
+            zone_id = d_info.get('zone_id') or (base_d['zone_id'] if base_d else 'zone-1')
+            wall = d_info.get('wall') or (base_d['wall'] if base_d else 'west')
+            width_m = d_info.get('width_m') or (base_d['width_m'] if base_d else 1.0)
+            x1 = d_info.get('x1', base_d['x1'] if base_d else 0.0)
+            y1 = d_info.get('y1', base_d['y1'] if base_d else 1.0)
+            x2 = d_info.get('x2', base_d['x2'] if base_d else 0.0)
+            y2 = d_info.get('y2', base_d['y2'] if base_d else 2.0)
 
-    # Patch workstation positions
-    desk_overrides = layout.get('workstations', {})
-    for desk in ARCHITECTURAL_ELEMENTS.get('workstations', []):
-        if desk['id'] in desk_overrides:
-            ov = desk_overrides[desk['id']]
-            desk['x'] = ov.get('x', desk['x'])
-            desk['y'] = ov.get('y', desk['y'])
+            new_doors.append({
+                'id': door_id,
+                'zone_id': zone_id,
+                'wall': wall,
+                'x1': x1, 'y1': y1,
+                'x2': x2, 'y2': y2,
+                'z_bottom': 0.0, 'z_top': 2.1,
+                'width_m': width_m
+            })
+        ARCHITECTURAL_ELEMENTS['doors'] = new_doors
 
 
-_apply_layout_overrides()
+def _get_zone_vents(zid: str, count: int, saved_vent_layout: dict) -> List[dict]:
+    """
+    Dynamically generates specified number of vents for a zone (synced with HVAC config).
+    Applies any saved position overrides from room_layout.json.
+    """
+    bounds = ZONE_QUADRANT_BOUNDS.get(zid, {'x_min': 1.0, 'x_max': 3.0, 'y_min': 1.0, 'y_max': 2.0})
+    z_idx = int(zid.split('-')[-1])
+    vents = []
+
+    cols = max(1, int(math.ceil(math.sqrt(count))))
+    rows = max(1, int(math.ceil(count / cols)))
+
+    dx = (bounds['x_max'] - bounds['x_min']) / max(1, cols - 1) if cols > 1 else 0
+    dy = (bounds['y_max'] - bounds['y_min']) / max(1, rows - 1) if rows > 1 else 0
+
+    for i in range(count):
+        vent_id = f"vent-{z_idx}-{i+1}"
+        r = i // cols
+        c = i % cols
+
+        def_x = bounds['x_min'] + c * dx if cols > 1 else (bounds['x_min'] + bounds['x_max']) / 2
+        def_y = bounds['y_min'] + r * dy if rows > 1 else (bounds['y_min'] + bounds['y_max']) / 2
+
+        ov = saved_vent_layout.get(vent_id, {})
+        final_x = ov.get('x', def_x)
+        final_y = ov.get('y', def_y)
+
+        vents.append({
+            'id': vent_id,
+            'zone_id': zid,
+            'x': round(final_x, 2),
+            'y': round(final_y, 2),
+            'z': 2.8
+        })
+
+    return vents
 
 
 
@@ -201,8 +266,8 @@ class DigitalTwinEngine:
         vent_states: List[Dict[str, Any]],
         weather_info: Dict[str, Any],
         active_zone_ids: Optional[set] = None,
-        nx: int = 16,
-        ny: int = 12
+        nx: int = 32,
+        ny: int = 24
     ) -> Dict[str, Any]:
         """
         Computes high-fidelity localized temperature distribution matrix across the room.
@@ -285,6 +350,7 @@ class DigitalTwinEngine:
         """
         Synthesizes the complete Digital Twin state snapshot.
         """
+        _apply_layout_overrides()
         weather_info = weather_info or {'outdoor_temperature': 25.0, 'solar_radiation': 150.0}
         hvac_cfg = load_hvac_config()
         supply_temp_c = float(hvac_cfg.get('supply_air_temp_c', 14.0))
@@ -308,20 +374,21 @@ class DigitalTwinEngine:
         # 2. Extract Vent States from HVAC Control Engine ONLY for active zones
         hvac_recommendations = hvac_state.get('zone_recommendations', [])
         hvac_rec_map = {r['zone_id']: r for r in hvac_recommendations}
+        zone_vent_counts = hvac_cfg.get('zone_vent_counts', {})
+        saved_layout = _load_raw_layout_config().get('vents', {})
 
         vent_states = []
         for zid in active_zone_ids:
-            vents = ZONE_VENT_POSITIONS.get(zid, [])
+            target_count = int(zone_vent_counts.get(zid, 2))
+            vents = _get_zone_vents(zid, target_count, saved_layout)
             rec = hvac_rec_map.get(zid, {})
             vent_details = rec.get('vent_details', [])
             valve_pct = float(rec.get('valve_opening_pct', 30.0))
-            active_vents_count = rec.get('active_vents_count', len(vents))
             ac_state = rec.get('ac_state', 'ON')
 
             for idx, vent in enumerate(vents):
-                # Retrieve individual vent CFM if available
                 v_detail = vent_details[idx] if idx < len(vent_details) else {}
-                cfm = v_detail.get('airflow_cfm', 75.0 if ac_state == 'ON' else 0.0)
+                cfm = v_detail.get('airflow_cfm', round(150.0 / max(1, target_count), 1) if ac_state == 'ON' else 0.0)
                 v_valve = v_detail.get('valve_opening_pct', valve_pct)
 
                 vent_states.append({

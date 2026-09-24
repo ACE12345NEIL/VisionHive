@@ -1,14 +1,14 @@
 /**
- * Stage 21 — Digital Twin 2D/3D Visual Spatial Model.
- * Interactive canvas renderer supporting:
- *  - 2D Top-Down Architectural Floor Plan
- *  - 3D Isometric Spatial Projection
- *  - Filtering to ONLY active/selected camera-assigned zones (e.g. Zone 1 & Zone 4)
- *  - Real-time Occupant Markers (position, ID, activity, metabolic heat)
- *  - Thermal Heat Map gradient overlay (interpolated zone & plume temps)
- *  - Airflow Vector Field with animated particles & velocity arrows
- *  - Ceiling Diffuser Vents & Central Return Grille
- *  - Interactive Element Inspector HUD & Hover Tooltip
+ * Stage 21 — Digital Twin 2D/3D Visual Spatial Model & Interactive Layout Customizer.
+ * Features:
+ *  - High-Definition 1200x720 Canvas & 32x24 Heatmap Grid Resolution
+ *  - Real-Time Continuous Point Inspection (hover anywhere to view live temperature & coordinates)
+ *  - Auto Wall Snapping (drag doors/windows to North, South, East, West walls)
+ *  - Endpoint Drag Resizing for Windows & Doors
+ *  - Dynamic HVAC Vent Count Syncing (e.g. 5 vents per zone)
+ *  - Add & Delete Windows / Doors with persistence (`room_layout.json`)
+ *  - 1:1 Scaling Compensated Pointer Selection (Zero Offset)
+ *  - Non-Overlapping Legend Placement (sit below canvas)
  */
 (function() {
   const canvas = document.getElementById('digital-twin-canvas');
@@ -18,92 +18,79 @@
   const tooltip = document.getElementById('twin-tooltip');
 
   // Layer & View States
-  let viewMode = '2d'; // '2d' or '3d'
+  let viewMode = '2d';
   let showOccupants = true;
   let showHeatmap = true;
   let showVectors = true;
   let showElements = true;
   let animationFrameId = null;
 
-  // State cache
+  // State cache & local layout overrides
   let twinData = null;
   let hoveredObject = null;
+  let selectedObject = null;
+  let draggedObject = null;
+  let resizeHandle = null; // 'handle1' or 'handle2'
+  let dragOffsetM = { x: 0, y: 0 };
   let animTime = 0;
 
-  // Particle system for airflow vectors
-  const MAX_PARTICLES = 100;
+  let layoutCache = { vents: {}, windows: {}, doors: {} };
+
+  // Airflow vector particles
+  const MAX_PARTICLES = 120;
   const particles = [];
   for (let i = 0; i < MAX_PARTICLES; i++) {
     particles.push({
-      x: 2.0,
-      y: 1.5,
+      x: 2.0, y: 1.5,
       age: Math.random() * 100,
       maxAge: 70 + Math.random() * 60,
       speedScale: 0.8 + Math.random() * 0.5
     });
   }
 
-  // Color gradient palette for temperatures (18°C - 28°C)
   function getThermalColor(tempC, alpha = 0.55) {
     const minT = 18.0;
     const maxT = 28.0;
     const ratio = Math.max(0, Math.min(1, (tempC - minT) / (maxT - minT)));
 
     let r, g, b;
-    if (ratio < 0.2) { // 18 - 20: Cool Blue to Cyan
+    if (ratio < 0.2) {
       const t = ratio / 0.2;
-      r = Math.round(30 + 10 * t);
-      g = Math.round(100 + 100 * t);
-      b = Math.round(230 + 20 * t);
-    } else if (ratio < 0.4) { // 20 - 22: Cyan to Teal / Emerald
+      r = Math.round(30 + 10 * t); g = Math.round(100 + 100 * t); b = Math.round(230 + 20 * t);
+    } else if (ratio < 0.4) {
       const t = (ratio - 0.2) / 0.2;
-      r = Math.round(40 + 5 * t);
-      g = Math.round(200 + 20 * t);
-      b = Math.round(250 - 100 * t);
-    } else if (ratio < 0.6) { // 22 - 24: Emerald to Lime / Yellow
+      r = Math.round(40 + 5 * t); g = Math.round(200 + 20 * t); b = Math.round(250 - 100 * t);
+    } else if (ratio < 0.6) {
       const t = (ratio - 0.4) / 0.2;
-      r = Math.round(45 + 175 * t);
-      g = Math.round(220 + 20 * t);
-      b = Math.round(150 - 110 * t);
-    } else if (ratio < 0.8) { // 24 - 26: Yellow to Orange
+      r = Math.round(45 + 175 * t); g = Math.round(220 + 20 * t); b = Math.round(150 - 110 * t);
+    } else if (ratio < 0.8) {
       const t = (ratio - 0.6) / 0.2;
-      r = Math.round(220 + 30 * t);
-      g = Math.round(240 - 100 * t);
-      b = Math.round(40 - 20 * t);
-    } else { // 26 - 28+: Orange to Deep Coral / Red
+      r = Math.round(220 + 30 * t); g = Math.round(240 - 100 * t); b = Math.round(40 - 20 * t);
+    } else {
       const t = (ratio - 0.8) / 0.2;
-      r = Math.round(250);
-      g = Math.round(140 - 90 * t);
-      b = Math.round(20 + 10 * t);
+      r = Math.round(250); g = Math.round(140 - 90 * t); b = Math.round(20 + 10 * t);
     }
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
 
-  // Coordinate Transformers
   function toScreen2D(x, y) {
-    const marginX = 60;
-    const marginY = 50;
+    const marginX = 80;
+    const marginY = 60;
     const availableW = canvas.width - marginX * 2;
     const availableH = canvas.height - marginY * 2;
     const scale = Math.min(availableW / 8.0, availableH / 6.0);
     const offsetX = (canvas.width - 8.0 * scale) / 2;
     const offsetY = (canvas.height - 6.0 * scale) / 2;
-    return {
-      x: offsetX + x * scale,
-      y: offsetY + y * scale,
-      scale: scale
-    };
+    return { x: offsetX + x * scale, y: offsetY + y * scale, scale: scale };
   }
 
   function toScreen3D(x, y, z = 0) {
-    // Isometric Projection: 30-degree isometric slant
-    const scale = 44;
+    const scale = 62;
     const originX = canvas.width / 2;
-    const originY = canvas.height / 2 + 35;
+    const originY = canvas.height / 2 + 45;
     const cos30 = 0.866;
     const sin30 = 0.5;
 
-    // Center room at (4.0, 3.0)
     const dx = x - 4.0;
     const dy = y - 3.0;
 
@@ -116,8 +103,73 @@
     return viewMode === '3d' ? toScreen3D(x, y, z) : toScreen2D(x, y);
   }
 
+  function getCanvasMouseCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      mouseX: (e.clientX - rect.left) * scaleX,
+      mouseY: (e.clientY - rect.top) * scaleY
+    };
+  }
+
+  function screenToRoom2D(mouseX, mouseY) {
+    const p0 = toScreen2D(0, 0);
+    const p8 = toScreen2D(8.0, 6.0);
+    const scale = (p8.x - p0.x) / 8.0;
+    const rx = Math.max(0.0, Math.min(8.0, (mouseX - p0.x) / scale));
+    const ry = Math.max(0.0, Math.min(6.0, (mouseY - p0.y) / scale));
+    return { rx, ry, scale };
+  }
+
+  function distToSegment(px, py, x1, y1, x2, y2) {
+    const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+    if (l2 === 0) return Math.hypot(px - x1, py - y1);
+    let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (x1 + t * (x2 - x1)), py - (y1 + t * (y2 - y1)));
+  }
+
   function getActiveZoneIds() {
     return new Set(twinData?.active_zone_ids || ['zone-1', 'zone-4']);
+  }
+
+  function applyLayoutOverridesToTwinData() {
+    if (!twinData) return;
+    if (twinData.vents) {
+      twinData.vents.forEach(v => {
+        if (layoutCache.vents[v.id]) {
+          v.x = layoutCache.vents[v.id].x;
+          v.y = layoutCache.vents[v.id].y;
+        }
+      });
+    }
+    if (twinData.architecture?.windows) {
+      twinData.architecture.windows.forEach(w => {
+        if (layoutCache.windows[w.id]) {
+          w.x1 = layoutCache.windows[w.id].x1;
+          w.y1 = layoutCache.windows[w.id].y1;
+          w.x2 = layoutCache.windows[w.id].x2;
+          w.y2 = layoutCache.windows[w.id].y2;
+          if (layoutCache.windows[w.id].wall) w.wall = layoutCache.windows[w.id].wall;
+          if (layoutCache.windows[w.id].zone_id) w.zone_id = layoutCache.windows[w.id].zone_id;
+          if (layoutCache.windows[w.id].width_m) w.width_m = layoutCache.windows[w.id].width_m;
+        }
+      });
+    }
+    if (twinData.architecture?.doors) {
+      twinData.architecture.doors.forEach(d => {
+        if (layoutCache.doors[d.id]) {
+          d.x1 = layoutCache.doors[d.id].x1;
+          d.y1 = layoutCache.doors[d.id].y1;
+          d.x2 = layoutCache.doors[d.id].x2;
+          d.y2 = layoutCache.doors[d.id].y2;
+          if (layoutCache.doors[d.id].wall) d.wall = layoutCache.doors[d.id].wall;
+          if (layoutCache.doors[d.id].zone_id) d.zone_id = layoutCache.doors[d.id].zone_id;
+          if (layoutCache.doors[d.id].width_m) d.width_m = layoutCache.doors[d.id].width_m;
+        }
+      });
+    }
   }
 
   // ── Render 2D View ──────────────────────────────────────────────────────────
@@ -130,19 +182,15 @@
 
     const activeZoneIds = getActiveZoneIds();
 
-    // 1. Room Floor Background
     ctx.fillStyle = '#060a0b';
     ctx.fillRect(p00.x, p00.y, roomW, roomH);
 
-    // 2. Thermal Heatmap Layer (ONLY for active zones)
     if (showHeatmap && twinData && twinData.thermal_heatmap) {
       renderHeatmap2D(p00.x, p00.y, roomW, roomH);
     }
 
-    // 3. Render Quadrants (Inactive Hatching & Active Highlights)
     renderQuadrants2D(activeZoneIds);
 
-    // 4. Zone Dividing Boundaries
     ctx.strokeStyle = 'rgba(45, 212, 191, 0.25)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash([6, 6]);
@@ -161,30 +209,25 @@
     ctx.stroke();
     ctx.setLineDash([]);
 
-    // 5. Architectural Elements (Walls, Windows, Doors, Desks)
     if (showElements) {
-      renderArchitecture2D(p00.x, p00.y, roomW, roomH, scale, activeZoneIds);
+      renderArchitecture2D(scale, activeZoneIds);
     }
 
-    // 6. HVAC Vents & Return Grille (ONLY in active zones)
     if (showElements && twinData && twinData.vents) {
       renderVents2D(scale);
     }
 
-    // 7. Airflow Vector Field & Particles (ONLY in active zones)
     if (showVectors && twinData && twinData.airflow_vectors) {
       renderVectors2D();
       renderParticles2D(activeZoneIds);
     }
 
-    // 8. Occupant Markers (ONLY in active zones)
     if (showOccupants && twinData && twinData.occupants) {
       renderOccupants2D();
     }
 
-    // 9. Room Perimeter Outer Border
     ctx.strokeStyle = 'rgba(45, 212, 191, 0.7)';
-    ctx.lineWidth = 3.5;
+    ctx.lineWidth = 4.0;
     ctx.strokeRect(p00.x, p00.y, roomW, roomH);
   }
 
@@ -198,11 +241,9 @@
     for (let j = 0; j < ny; j++) {
       for (let i = 0; i < nx; i++) {
         const temp = hm.grid[j][i];
-        if (temp === null || temp === undefined || temp < 0) {
-          continue; // Inactive zone: skip!
-        }
-        ctx.fillStyle = getThermalColor(temp, 0.52);
-        ctx.fillRect(originX + i * cellW, originY + j * cellH, cellW + 0.6, cellH + 0.6);
+        if (temp === null || temp === undefined || temp < 0) continue;
+        ctx.fillStyle = getThermalColor(temp, 0.55);
+        ctx.fillRect(originX + i * cellW, originY + j * cellH, cellW + 0.8, cellH + 0.8);
       }
     }
   }
@@ -222,7 +263,6 @@
       const qh = pBottomRight.y - pTopLeft.y;
 
       if (!activeZoneIds.has(q.id)) {
-        // Inactive / Unmonitored Zone: Dark shading with subtle diagonal hatch lines
         ctx.fillStyle = 'rgba(6, 11, 12, 0.9)';
         ctx.fillRect(pTopLeft.x, pTopLeft.y, qw, qh);
 
@@ -230,9 +270,9 @@
         ctx.beginPath();
         ctx.rect(pTopLeft.x, pTopLeft.y, qw, qh);
         ctx.clip();
-        ctx.strokeStyle = 'rgba(71, 85, 105, 0.12)';
+        ctx.strokeStyle = 'rgba(71, 85, 105, 0.15)';
         ctx.lineWidth = 1;
-        for (let d = -qh; d < qw + qh; d += 16) {
+        for (let d = -qh; d < qw + qh; d += 18) {
           ctx.beginPath();
           ctx.moveTo(pTopLeft.x + d, pTopLeft.y);
           ctx.lineTo(pTopLeft.x + d + qh, pTopLeft.y + qh);
@@ -240,176 +280,199 @@
         }
         ctx.restore();
 
-        // Inactive status badge
         ctx.fillStyle = 'rgba(100, 116, 139, 0.7)';
-        ctx.font = '600 11px Inter, sans-serif';
+        ctx.font = '600 12px Inter, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText(`🔒 ${q.shortName}`, pTopLeft.x + qw / 2, pTopLeft.y + qh / 2 - 8);
+        ctx.fillText(`🔒 ${q.shortName}`, pTopLeft.x + qw / 2, pTopLeft.y + qh / 2 - 10);
         ctx.fillStyle = 'rgba(71, 85, 105, 0.85)';
-        ctx.font = '500 10px Inter, sans-serif';
-        ctx.fillText('[No Camera Assigned]', pTopLeft.x + qw / 2, pTopLeft.y + qh / 2 + 8);
+        ctx.font = '500 11px Inter, sans-serif';
+        ctx.fillText('[No Camera Assigned]', pTopLeft.x + qw / 2, pTopLeft.y + qh / 2 + 10);
       } else {
-        // Active zone border highlight
         ctx.strokeStyle = 'rgba(45, 212, 191, 0.45)';
         ctx.lineWidth = 1.5;
         ctx.strokeRect(pTopLeft.x + 1, pTopLeft.y + 1, qw - 2, qh - 2);
 
-        // Active Zone Title Badge with live temperature
         const zInfo = twinData?.zones?.find(z => z.id === q.id);
         const tempStr = zInfo && zInfo.temperature_c ? ` (${zInfo.temperature_c}°C)` : '';
         ctx.fillStyle = '#2dd4bf';
-        ctx.font = '600 11px Inter, sans-serif';
+        ctx.font = '600 12px Inter, sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText(`🟢 ${q.shortName}${tempStr}`, pTopLeft.x + 12, pTopLeft.y + 20);
+        ctx.fillText(`🟢 ${q.shortName}${tempStr}`, pTopLeft.x + 14, pTopLeft.y + 24);
       }
     });
   }
 
-  function renderArchitecture2D(originX, originY, roomW, roomH, scale, activeZoneIds) {
-    // Windows on outer perimeter
+  function renderArchitecture2D(scale, activeZoneIds) {
+    // Windows
     const windows = twinData?.architecture?.windows || [];
     windows.forEach(w => {
       const isWindowActive = activeZoneIds.has(w.zone_id);
+      const isSelected = (hoveredObject?.id === w.id || selectedObject?.id === w.id || draggedObject?.id === w.id);
       let p1 = toScreen2D(w.x1, w.y1);
       let p2 = toScreen2D(w.x2, w.y2);
-      ctx.strokeStyle = isWindowActive ? '#38bdf8' : 'rgba(71, 85, 105, 0.4)';
-      ctx.lineWidth = isWindowActive ? 6 : 3;
+
+      ctx.save();
+      ctx.strokeStyle = isSelected ? '#38bdf8' : (isWindowActive ? '#0284c7' : 'rgba(71, 85, 105, 0.4)');
+      ctx.lineWidth = isSelected ? 9 : (isWindowActive ? 6 : 4);
+      if (isSelected) ctx.setLineDash([8, 4]);
+
       ctx.beginPath();
       ctx.moveTo(p1.x, p1.y);
       ctx.lineTo(p2.x, p2.y);
       ctx.stroke();
+      ctx.restore();
 
-      if (isWindowActive) {
-        const midX = (p1.x + p2.x) / 2;
-        const midY = (p1.y + p2.y) / 2;
+      // End Resize Handles when selected
+      if (isSelected) {
         ctx.fillStyle = '#38bdf8';
-        ctx.font = '500 10px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        const offset = w.wall === 'north' ? -8 : (w.wall === 'south' ? 14 : (w.wall === 'west' ? -12 : 12));
-        if (w.wall === 'north' || w.wall === 'south') {
-          ctx.fillText('🪟 Window', midX, midY + offset);
-        } else {
-          ctx.fillText('🪟 Window', midX + offset, midY);
-        }
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.arc(p1.x, p1.y, 7, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(p2.x, p2.y, 7, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
       }
+
+      const midX = (p1.x + p2.x) / 2;
+      const midY = (p1.y + p2.y) / 2;
+      ctx.fillStyle = isSelected ? '#38bdf8' : 'rgba(56, 189, 248, 0.9)';
+      ctx.font = '600 11px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      const labelText = isSelected ? `🪟 WINDOW ${w.id} (${w.wall.toUpperCase()}) ↔️` : `🪟 ${w.id}`;
+      ctx.fillText(labelText, midX, midY - 12);
     });
 
-    // Doors on outer perimeter
+    // Doors
     const doors = twinData?.architecture?.doors || [];
     doors.forEach(d => {
       const isDoorActive = activeZoneIds.has(d.zone_id);
+      const isSelected = (hoveredObject?.id === d.id || selectedObject?.id === d.id || draggedObject?.id === d.id);
       let p1 = toScreen2D(d.x1, d.y1);
       let p2 = toScreen2D(d.x2, d.y2);
-      ctx.strokeStyle = isDoorActive ? '#f59e0b' : 'rgba(71, 85, 105, 0.4)';
-      ctx.lineWidth = isDoorActive ? 6 : 3;
+
+      ctx.save();
+      ctx.strokeStyle = isSelected ? '#f59e0b' : (isDoorActive ? '#d97706' : 'rgba(71, 85, 105, 0.4)');
+      ctx.lineWidth = isSelected ? 9 : (isDoorActive ? 6 : 4);
+      if (isSelected) ctx.setLineDash([8, 4]);
+
       ctx.beginPath();
       ctx.moveTo(p1.x, p1.y);
       ctx.lineTo(p2.x, p2.y);
       ctx.stroke();
+      ctx.restore();
 
-      if (isDoorActive) {
-        const midX = (p1.x + p2.x) / 2;
-        const midY = (p1.y + p2.y) / 2;
+      // End Resize Handles when selected
+      if (isSelected) {
         ctx.fillStyle = '#f59e0b';
-        ctx.font = '500 10px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText('🚪 Door', midX + (d.wall === 'west' ? -18 : 18), midY);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.arc(p1.x, p1.y, 7, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
+
+        ctx.beginPath();
+        ctx.arc(p2.x, p2.y, 7, 0, Math.PI * 2);
+        ctx.fill(); ctx.stroke();
       }
-    });
 
-    // Workstation Desks
-    const desks = twinData?.architecture?.workstations || [];
-    desks.forEach(desk => {
-      const isDeskActive = activeZoneIds.has(desk.zone_id);
-      if (!isDeskActive) return; // Only show workstations in selected zones!
-
-      const sp = toScreen2D(desk.x, desk.y);
-      const dw = desk.width_m * scale;
-      const dl = desk.length_m * scale;
-      ctx.fillStyle = 'rgba(30, 41, 59, 0.75)';
-      ctx.strokeStyle = 'rgba(100, 116, 139, 0.5)';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.roundRect(sp.x - dw / 2, sp.y - dl / 2, dw, dl, 4);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
-      ctx.font = '500 9px Inter, sans-serif';
+      const midX = (p1.x + p2.x) / 2;
+      const midY = (p1.y + p2.y) / 2;
+      ctx.fillStyle = isSelected ? '#f59e0b' : 'rgba(245, 158, 11, 0.9)';
+      ctx.font = '600 11px Inter, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('💻 Desk', sp.x, sp.y + 3);
+      const labelText = isSelected ? `🚪 DOOR ${d.id} (${d.wall.toUpperCase()}) ↔️` : `🚪 ${d.id}`;
+      ctx.fillText(labelText, midX, midY + 16);
     });
   }
 
   function renderVents2D(scale) {
-    // 1. Central Return Air Grille
     const ret = twinData.return_grille;
     if (ret) {
       const sp = toScreen2D(ret.x, ret.y);
-      const rSize = 20;
+      const rSize = 24;
       ctx.fillStyle = 'rgba(244, 63, 94, 0.2)';
       ctx.strokeStyle = '#f43f5e';
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
       ctx.arc(sp.x, sp.y, rSize, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
       ctx.fillStyle = '#f43f5e';
-      ctx.font = '600 9px Inter, sans-serif';
+      ctx.font = '600 10px Inter, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('RETURN', sp.x, sp.y + 3);
+      ctx.fillText('RETURN', sp.x, sp.y + 3.5);
     }
 
-    // 2. Supply Vents (ONLY in active zones)
     twinData.vents.forEach(v => {
       const sp = toScreen2D(v.x, v.y);
       const isActive = v.status === 'active' && v.valve_opening_pct > 0;
-      const ventRadius = 14;
+      const isSelected = (hoveredObject?.id === v.id || selectedObject?.id === v.id || draggedObject?.id === v.id);
+      const ventRadius = isSelected ? 20 : 16;
 
-      if (isActive) {
+      if (isSelected) {
+        const pulse = Math.sin(animTime * 6) * 6;
+        ctx.fillStyle = 'rgba(45, 212, 191, 0.35)';
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, ventRadius + 14 + pulse, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = '#2dd4bf';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.arc(sp.x, sp.y, ventRadius + 7, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else if (isActive) {
         const pulse = Math.sin(animTime * 4) * 4;
         ctx.fillStyle = 'rgba(45, 212, 191, 0.15)';
         ctx.beginPath();
-        ctx.arc(sp.x, sp.y, ventRadius + 8 + pulse, 0, Math.PI * 2);
+        ctx.arc(sp.x, sp.y, ventRadius + 9 + pulse, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      ctx.fillStyle = isActive ? 'rgba(45, 212, 191, 0.3)' : 'rgba(71, 85, 105, 0.3)';
-      ctx.strokeStyle = isActive ? '#2dd4bf' : '#64748b';
-      ctx.lineWidth = 2;
+      ctx.fillStyle = isActive ? 'rgba(45, 212, 191, 0.35)' : 'rgba(71, 85, 105, 0.35)';
+      ctx.strokeStyle = isSelected ? '#2dd4bf' : (isActive ? '#2dd4bf' : '#64748b');
+      ctx.lineWidth = isSelected ? 3.5 : 2;
       ctx.beginPath();
       ctx.arc(sp.x, sp.y, ventRadius, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
       ctx.beginPath();
-      ctx.moveTo(sp.x - 7, sp.y);
-      ctx.lineTo(sp.x + 7, sp.y);
-      ctx.moveTo(sp.x, sp.y - 7);
-      ctx.lineTo(sp.x, sp.y + 7);
+      ctx.moveTo(sp.x - 8, sp.y);
+      ctx.lineTo(sp.x + 8, sp.y);
+      ctx.moveTo(sp.x, sp.y - 8);
+      ctx.lineTo(sp.x, sp.y + 8);
       ctx.stroke();
 
-      ctx.fillStyle = '#e7f3f1';
-      ctx.font = '600 9px Inter, sans-serif';
+      ctx.fillStyle = isSelected ? '#2dd4bf' : '#e7f3f1';
+      ctx.font = '600 10px Inter, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`${v.valve_opening_pct}%`, sp.x, sp.y + ventRadius + 11);
-      ctx.fillStyle = 'rgba(45, 212, 191, 0.85)';
-      ctx.font = '500 8px Inter, sans-serif';
-      ctx.fillText(`${v.airflow_cfm} CFM`, sp.x, sp.y + ventRadius + 21);
+      const labelStr = isSelected ? `🌀 VENT ${v.id}` : `${v.valve_opening_pct}%`;
+      ctx.fillText(labelStr, sp.x, sp.y + ventRadius + 13);
+      ctx.fillStyle = 'rgba(45, 212, 191, 0.9)';
+      ctx.font = '500 9px Inter, sans-serif';
+      ctx.fillText(`${v.airflow_cfm} CFM`, sp.x, sp.y + ventRadius + 24);
     });
   }
 
   function renderVectors2D() {
     const vectors = twinData.airflow_vectors;
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.35)';
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.5)';
-    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+    ctx.fillStyle = 'rgba(56, 189, 248, 0.6)';
+    ctx.lineWidth = 1.4;
 
     vectors.forEach(vec => {
       if (vec.speed_mps < 0.05) return;
       const p = toScreen2D(vec.x, vec.y);
-      const arrowLen = Math.min(18, Math.max(6, vec.speed_mps * 28));
+      const arrowLen = Math.min(22, Math.max(7, vec.speed_mps * 32));
       const rad = (vec.direction_deg * Math.PI) / 180.0;
       const targetX = p.x + Math.cos(rad) * arrowLen;
       const targetY = p.y + Math.sin(rad) * arrowLen;
@@ -419,7 +482,7 @@
       ctx.lineTo(targetX, targetY);
       ctx.stroke();
 
-      const headLen = 4;
+      const headLen = 5;
       ctx.beginPath();
       ctx.moveTo(targetX, targetY);
       ctx.lineTo(
@@ -436,7 +499,6 @@
   }
 
   function renderParticles2D(activeZoneIds) {
-    ctx.fillStyle = '#38bdf8';
     particles.forEach(p => {
       const vxGrid = twinData.airflow_vectors || [];
       let vx = 0.05;
@@ -452,24 +514,26 @@
         }
       }
 
-      p.x += vx * 0.04 * p.speedScale;
-      p.y += vy * 0.04 * p.speedScale;
-      p.age++;
+      p.x += vx * 0.12 * p.speedScale;
+      p.y += vy * 0.12 * p.speedScale;
+      p.age += 1;
 
-      const pZid = p.x < 4.0 && p.y < 3.0 ? 'zone-1' :
-                   p.x >= 4.0 && p.y < 3.0 ? 'zone-2' :
-                   p.x < 4.0 && p.y >= 3.0 ? 'zone-3' : 'zone-4';
+      const pZone = p.x < 4.0 && p.y < 3.0 ? 'zone-1' :
+                    p.x >= 4.0 && p.y < 3.0 ? 'zone-2' :
+                    p.x < 4.0 && p.y >= 3.0 ? 'zone-3' : 'zone-4';
 
-      if (p.age > p.maxAge || p.x < 0.2 || p.x > 7.8 || p.y < 0.2 || p.y > 5.8 || !activeZoneIds.has(pZid)) {
-        const activeVents = (twinData.vents || []).filter(v => v.status === 'active' && activeZoneIds.has(v.zone_id));
-        if (activeVents.length > 0) {
-          const v = activeVents[Math.floor(Math.random() * activeVents.length)];
-          p.x = v.x + (Math.random() - 0.5) * 0.4;
-          p.y = v.y + (Math.random() - 0.5) * 0.4;
-        } else {
-          p.x = 2.0;
-          p.y = 1.5;
-        }
+      if (p.x < 0.1 || p.x > 7.9 || p.y < 0.1 || p.y > 5.9 || p.age > p.maxAge || !activeZoneIds.has(pZone)) {
+        const activeList = Array.from(activeZoneIds);
+        const randZone = activeList.length > 0 ? activeList[Math.floor(Math.random() * activeList.length)] : 'zone-1';
+        const bounds = {
+          'zone-1': { x1: 0.5, x2: 3.5, y1: 0.5, y2: 2.5 },
+          'zone-2': { x1: 4.5, x2: 7.5, y1: 0.5, y2: 2.5 },
+          'zone-3': { x1: 0.5, x2: 3.5, y1: 3.5, y2: 5.5 },
+          'zone-4': { x1: 4.5, x2: 7.5, y1: 3.5, y2: 5.5 },
+        }[randZone] || { x1: 1, x2: 7, y1: 1, y2: 5 };
+
+        p.x = bounds.x1 + Math.random() * (bounds.x2 - bounds.x1);
+        p.y = bounds.y1 + Math.random() * (bounds.y2 - bounds.y1);
         p.age = 0;
       }
 
@@ -477,7 +541,7 @@
       const alpha = Math.sin((p.age / p.maxAge) * Math.PI) * 0.7;
       ctx.fillStyle = `rgba(56, 189, 248, ${alpha})`;
       ctx.beginPath();
-      ctx.arc(sp.x, sp.y, 2, 0, Math.PI * 2);
+      ctx.arc(sp.x, sp.y, 2.5, 0, Math.PI * 2);
       ctx.fill();
     });
   }
@@ -485,277 +549,162 @@
   function renderOccupants2D() {
     twinData.occupants.forEach(occ => {
       const sp = toScreen2D(occ.x, occ.y);
-      const isHovered = hoveredObject && hoveredObject.id === occ.id;
-
-      // Occupant Heat Dissipation Aura
-      const auraPulse = Math.sin(animTime * 3) * 3;
-      const auraGrad = ctx.createRadialGradient(sp.x, sp.y, 6, sp.x, sp.y, 24 + auraPulse);
-      auraGrad.addColorStop(0, 'rgba(245, 158, 11, 0.4)');
-      auraGrad.addColorStop(1, 'rgba(245, 158, 11, 0.0)');
-      ctx.fillStyle = auraGrad;
+      const glow = Math.sin(animTime * 3) * 4;
+      ctx.fillStyle = 'rgba(251, 146, 60, 0.2)';
       ctx.beginPath();
-      ctx.arc(sp.x, sp.y, 24 + auraPulse, 0, Math.PI * 2);
+      ctx.arc(sp.x, sp.y, 18 + glow, 0, Math.PI * 2);
       ctx.fill();
 
-      // Occupant Avatar Pin
-      ctx.fillStyle = '#f59e0b';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = isHovered ? 2.5 : 1.5;
+      ctx.fillStyle = '#fb923c';
+      ctx.strokeStyle = '#060a0b';
+      ctx.lineWidth = 2.5;
       ctx.beginPath();
-      ctx.arc(sp.x, sp.y, isHovered ? 12 : 9, 0, Math.PI * 2);
+      ctx.arc(sp.x, sp.y, 11, 0, Math.PI * 2);
       ctx.fill();
       ctx.stroke();
 
-      ctx.fillStyle = '#0a1214';
-      ctx.beginPath();
-      ctx.arc(sp.x, sp.y - 1, 3.5, 0, Math.PI * 2);
-      ctx.fill();
-
-      // Label Pill
-      const shortId = occ.id.split('-').pop();
-      const label = `#${shortId} · ${occ.activity}`;
-      ctx.font = '600 10px Inter, sans-serif';
-      const textW = ctx.measureText(label).width;
-
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.roundRect(sp.x - textW / 2 - 5, sp.y - 28, textW + 10, 16, 4);
-      ctx.fill();
-      ctx.stroke();
-
-      ctx.fillStyle = '#fef3c7';
+      ctx.fillStyle = '#f8fafc';
+      ctx.font = '600 9px Inter, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(label, sp.x, sp.y - 16);
+      const numStr = occ.id.split('-').pop();
+      ctx.fillText(`P${numStr}`, sp.x, sp.y + 3.5);
+
+      ctx.fillStyle = '#fb923c';
+      ctx.font = '600 10px Inter, sans-serif';
+      ctx.fillText(`${occ.activity.toUpperCase()}`, sp.x, sp.y + 22);
     });
   }
 
-  // ── Render 3D Isometric View ────────────────────────────────────────────────
+  // ── Render 3D Isometric View ───────────────────────────────────────────────
   function render3D() {
-    drawIsoFloor();
-    drawIsoWalls();
+    const p00 = toScreen3D(0, 0, 0);
+    const p80 = toScreen3D(8.0, 0, 0);
+    const p86 = toScreen3D(8.0, 6.0, 0);
+    const p06 = toScreen3D(0, 6.0, 0);
 
-    if (showElements && twinData && twinData.vents) {
-      drawIsoVents();
-    }
-
-    if (showOccupants && twinData && twinData.occupants) {
-      drawIsoOccupants();
-    }
-
-    if (showVectors && twinData && twinData.airflow_vectors) {
-      drawIsoVectors();
-    }
-  }
-
-  function drawIsoFloor() {
-    const hm = twinData?.thermal_heatmap;
-    const nx = hm?.nx || 16;
-    const ny = hm?.ny || 12;
-    const dx = 8.0 / nx;
-    const dy = 6.0 / ny;
     const activeZoneIds = getActiveZoneIds();
 
-    for (let j = 0; j < ny; j++) {
-      for (let i = 0; i < nx; i++) {
-        const x1 = i * dx;
-        const y1 = j * dy;
-        const x2 = (i + 1) * dx;
-        const y2 = (j + 1) * dy;
+    const stepX = 1.0;
+    const stepY = 1.0;
+    for (let x = 0; x < 8.0; x += stepX) {
+      for (let y = 0; y < 6.0; y += stepY) {
+        const t1 = toScreen3D(x, y, 0);
+        const t2 = toScreen3D(x + stepX, y, 0);
+        const t3 = toScreen3D(x + stepX, y + stepY, 0);
+        const t4 = toScreen3D(x, y + stepY, 0);
 
-        const p1 = toScreen3D(x1, y1, 0);
-        const p2 = toScreen3D(x2, y1, 0);
-        const p3 = toScreen3D(x2, y2, 0);
-        const p4 = toScreen3D(x1, y2, 0);
+        const tileZone = x < 4.0 && y < 3.0 ? 'zone-1' :
+                         x >= 4.0 && y < 3.0 ? 'zone-2' :
+                         x < 4.0 && y >= 3.0 ? 'zone-3' : 'zone-4';
 
-        const cx = (x1 + x2) / 2;
-        const cy = (y1 + y2) / 2;
-        const cellZid = cx < 4.0 && cy < 3.0 ? 'zone-1' :
-                        cx >= 4.0 && cy < 3.0 ? 'zone-2' :
-                        cx < 4.0 && cy >= 3.0 ? 'zone-3' : 'zone-4';
-
-        const isCellActive = activeZoneIds.has(cellZid);
-        const temp = (hm && isCellActive) ? hm.grid[j][i] : null;
-
-        if (showHeatmap && temp !== null && temp !== undefined) {
-          ctx.fillStyle = getThermalColor(temp, 0.65);
-          ctx.strokeStyle = 'rgba(45, 212, 191, 0.15)';
+        if (!activeZoneIds.has(tileZone)) {
+          ctx.fillStyle = 'rgba(6, 11, 12, 0.95)';
         } else {
-          ctx.fillStyle = isCellActive ? '#0a1518' : '#050a0b';
-          ctx.strokeStyle = isCellActive ? 'rgba(45, 212, 191, 0.08)' : 'rgba(30, 41, 59, 0.15)';
+          ctx.fillStyle = ((x / stepX + y / stepY) % 2 === 0) ? 'rgba(15, 23, 42, 0.7)' : 'rgba(30, 41, 59, 0.7)';
         }
-        ctx.lineWidth = 0.8;
 
+        ctx.strokeStyle = 'rgba(51, 65, 85, 0.4)';
+        ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(p1.x, p1.y);
-        ctx.lineTo(p2.x, p2.y);
-        ctx.lineTo(p3.x, p3.y);
-        ctx.lineTo(p4.x, p4.y);
+        ctx.moveTo(t1.x, t1.y);
+        ctx.lineTo(t2.x, t2.y);
+        ctx.lineTo(t3.x, t3.y);
+        ctx.lineTo(t4.x, t4.y);
         ctx.closePath();
         ctx.fill();
         ctx.stroke();
       }
     }
 
-    // Inactive Zone 3D badges
-    const isoQuadCenters = [
-      { id: 'zone-1', name: 'Zone 1 · NW', x: 2.0, y: 1.5 },
-      { id: 'zone-2', name: 'Zone 2 · NE', x: 6.0, y: 1.5 },
-      { id: 'zone-3', name: 'Zone 3 · SW', x: 2.0, y: 4.5 },
-      { id: 'zone-4', name: 'Zone 4 · SE', x: 6.0, y: 4.5 },
-    ];
-    isoQuadCenters.forEach(q => {
-      if (!activeZoneIds.has(q.id)) {
-        const cp = toScreen3D(q.x, q.y, 0.05);
-        ctx.fillStyle = 'rgba(100, 116, 139, 0.7)';
-        ctx.font = '600 11px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(`🔒 ${q.name}`, cp.x, cp.y - 6);
-        ctx.fillStyle = 'rgba(71, 85, 105, 0.85)';
-        ctx.font = '500 10px Inter, sans-serif';
-        ctx.fillText('[No Camera Assigned]', cp.x, cp.y + 8);
-      }
-    });
-
-    // Room Outer Floor Perimeter
-    const f1 = toScreen3D(0, 0, 0);
-    const f2 = toScreen3D(8.0, 0, 0);
-    const f3 = toScreen3D(8.0, 6.0, 0);
-    const f4 = toScreen3D(0, 6.0, 0);
-
-    ctx.strokeStyle = '#2dd4bf';
+    ctx.strokeStyle = 'rgba(45, 212, 191, 0.8)';
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.moveTo(f1.x, f1.y);
-    ctx.lineTo(f2.x, f2.y);
-    ctx.lineTo(f3.x, f3.y);
-    ctx.lineTo(f4.x, f4.y);
+    ctx.moveTo(p00.x, p00.y);
+    ctx.lineTo(p80.x, p80.y);
+    ctx.lineTo(p86.x, p86.y);
+    ctx.lineTo(p06.x, p06.y);
     ctx.closePath();
     ctx.stroke();
-  }
 
-  function drawIsoWalls() {
-    const wallH = 2.8;
-    const nw1 = toScreen3D(0, 0, 0);
-    const nw2 = toScreen3D(8.0, 0, 0);
-    const nw2Top = toScreen3D(8.0, 0, wallH);
-    const nw1Top = toScreen3D(0, 0, wallH);
+    const wallH = 2.5;
+    const p00_top = toScreen3D(0, 0, wallH);
+    const p80_top = toScreen3D(8.0, 0, wallH);
+    const p86_top = toScreen3D(8.0, 6.0, wallH);
+    const p06_top = toScreen3D(0, 6.0, wallH);
 
-    ctx.fillStyle = 'rgba(13, 21, 22, 0.6)';
     ctx.strokeStyle = 'rgba(45, 212, 191, 0.35)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(nw1.x, nw1.y);
-    ctx.lineTo(nw2.x, nw2.y);
-    ctx.lineTo(nw2Top.x, nw2Top.y);
-    ctx.lineTo(nw1Top.x, nw1Top.y);
-    ctx.closePath();
-    ctx.fill();
+    ctx.moveTo(p00.x, p00.y); ctx.lineTo(p00_top.x, p00_top.y);
+    ctx.moveTo(p80.x, p80.y); ctx.lineTo(p80_top.x, p80_top.y);
+    ctx.moveTo(p86.x, p86.y); ctx.lineTo(p86_top.x, p86_top.y);
+    ctx.moveTo(p06.x, p06.y); ctx.lineTo(p06_top.x, p06_top.y);
     ctx.stroke();
 
-    const ww1 = toScreen3D(0, 0, 0);
-    const ww2 = toScreen3D(0, 6.0, 0);
-    const ww2Top = toScreen3D(0, 6.0, wallH);
-    const ww1Top = toScreen3D(0, 0, wallH);
-
-    ctx.fillStyle = 'rgba(16, 26, 27, 0.7)';
+    ctx.strokeStyle = 'rgba(45, 212, 191, 0.5)';
+    ctx.setLineDash([4, 4]);
     ctx.beginPath();
-    ctx.moveTo(ww1.x, ww1.y);
-    ctx.lineTo(ww2.x, ww2.y);
-    ctx.lineTo(ww2Top.x, ww2Top.y);
-    ctx.lineTo(ww1Top.x, ww1Top.y);
+    ctx.moveTo(p00_top.x, p00_top.y);
+    ctx.lineTo(p80_top.x, p80_top.y);
+    ctx.lineTo(p86_top.x, p86_top.y);
+    ctx.lineTo(p06_top.x, p06_top.y);
     ctx.closePath();
-    ctx.fill();
     ctx.stroke();
-  }
+    ctx.setLineDash([]);
 
-  function drawIsoVents() {
-    twinData.vents.forEach(v => {
-      const topP = toScreen3D(v.x, v.y, v.z);
-      const floorP = toScreen3D(v.x, v.y, 0);
-      const isActive = v.status === 'active';
+    if (showOccupants && twinData.occupants) {
+      twinData.occupants.forEach(occ => {
+        const base = toScreen3D(occ.x, occ.y, 0);
+        const head = toScreen3D(occ.x, occ.y, 1.4);
 
-      if (isActive && v.valve_opening_pct > 0) {
-        const coneGrad = ctx.createLinearGradient(topP.x, topP.y, floorP.x, floorP.y);
-        coneGrad.addColorStop(0, 'rgba(56, 189, 248, 0.55)');
-        coneGrad.addColorStop(1, 'rgba(56, 189, 248, 0.05)');
-
-        ctx.fillStyle = coneGrad;
+        ctx.strokeStyle = '#fb923c';
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.moveTo(topP.x, topP.y);
-        ctx.lineTo(floorP.x - 25, floorP.y);
-        ctx.lineTo(floorP.x + 25, floorP.y);
-        ctx.closePath();
+        ctx.moveTo(base.x, base.y);
+        ctx.lineTo(head.x, head.y);
+        ctx.stroke();
+
+        ctx.fillStyle = '#fb923c';
+        ctx.beginPath();
+        ctx.arc(head.x, head.y, 8, 0, Math.PI * 2);
         ctx.fill();
-      }
 
-      ctx.fillStyle = isActive ? '#2dd4bf' : '#64748b';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.2;
-      ctx.beginPath();
-      ctx.arc(topP.x, topP.y, 6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-    });
-  }
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '600 9px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(occ.id.split('-').pop(), head.x, head.y + 3);
+      });
+    }
 
-  function drawIsoOccupants() {
-    const sorted = [...twinData.occupants].sort((a, b) => (a.x + a.y) - (b.x + b.y));
+    if (showElements && twinData.vents) {
+      twinData.vents.forEach(v => {
+        const p = toScreen3D(v.x, v.y, 2.4);
+        ctx.fillStyle = v.status === 'active' ? 'rgba(45, 212, 191, 0.85)' : 'rgba(100, 116, 139, 0.5)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 7, 0, Math.PI * 2);
+        ctx.fill();
 
-    sorted.forEach(occ => {
-      const base = toScreen3D(occ.x, occ.y, 0);
-      const head = toScreen3D(occ.x, occ.y, 1.75);
-
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
-      ctx.beginPath();
-      ctx.ellipse(base.x, base.y, 12, 6, 0, 0, Math.PI * 2);
-      ctx.fill();
-
-      ctx.strokeStyle = '#f59e0b';
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(base.x, base.y);
-      ctx.lineTo(head.x, head.y);
-      ctx.stroke();
-
-      ctx.fillStyle = '#fbbf24';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 1.5;
-      ctx.beginPath();
-      ctx.arc(head.x, head.y, 7, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.stroke();
-
-      const shortId = occ.id.split('-').pop();
-      ctx.font = '600 10px Inter, sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.fillText(`#${shortId}`, head.x, head.y - 12);
-    });
-  }
-
-  function drawIsoVectors() {
-    ctx.strokeStyle = 'rgba(56, 189, 248, 0.45)';
-    ctx.fillStyle = 'rgba(56, 189, 248, 0.6)';
-    ctx.lineWidth = 1.2;
-
-    twinData.airflow_vectors.forEach(vec => {
-      if (vec.speed_mps < 0.08) return;
-      const p1 = toScreen3D(vec.x, vec.y, 0.4);
-      const p2 = toScreen3D(vec.x + vec.vx * 0.8, vec.y + vec.vy * 0.8, 0.4);
-
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(p2.x, p2.y);
-      ctx.stroke();
-    });
+        if (v.status === 'active' && v.valve_opening_pct > 0) {
+          const floorP = toScreen3D(v.x, v.y, 0);
+          ctx.strokeStyle = 'rgba(45, 212, 191, 0.3)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([3, 3]);
+          ctx.beginPath();
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(floorP.x, floorP.y);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      });
+    }
   }
 
   // ── Main Render Loop ────────────────────────────────────────────────────────
   function render() {
     animTime += 0.016;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    applyLayoutOverridesToTwinData();
 
     if (viewMode === '2d') {
       render2D();
@@ -766,35 +715,39 @@
     animationFrameId = requestAnimationFrame(render);
   }
 
-  // ── Interactive Hover & Hit Testing ─────────────────────────────────────────
-  // Interactive Drag & Drop State
-  let draggedObject = null;
-  let dragOffsetM = { x: 0, y: 0 };
+  // ── Interactive Selection, Drag-and-Drop & Resizing Mechanics ────────────────
 
-  // Helper to convert screen pixel mouse coords to room physical coords (meters)
-  function screenToRoom2D(mouseX, mouseY) {
-    const p0 = toScreen2D(0, 0);
-    const p8 = toScreen2D(8.0, 6.0);
-    const scale = (p8.x - p0.x) / 8.0;
-    const rx = Math.max(0.2, Math.min(7.8, (mouseX - p0.x) / scale));
-    const ry = Math.max(0.2, Math.min(5.8, (mouseY - p0.y) / scale));
-    return { rx, ry, scale };
-  }
-
-  // ── Drag & Drop Event Listeners ─────────────────────────────────────────────
   canvas.addEventListener('mousedown', (e) => {
     if (!twinData || viewMode !== '2d') return;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const { mouseX, mouseY } = getCanvasMouseCoords(e);
     const { rx, ry } = screenToRoom2D(mouseX, mouseY);
 
-    // 1. Check Vents
+    // 1. Check Resize Handles for selected window/door
+    if (selectedObject && (selectedObject.id.startsWith('win-') || selectedObject.id.startsWith('door-'))) {
+      const p1 = toScreen2D(selectedObject.x1, selectedObject.y1);
+      const p2 = toScreen2D(selectedObject.x2, selectedObject.y2);
+      if (Math.hypot(mouseX - p1.x, mouseY - p1.y) < 14) {
+        resizeHandle = 'handle1';
+        draggedObject = { type: selectedObject.id.startsWith('win-') ? 'window' : 'door', id: selectedObject.id, ref: selectedObject };
+        canvas.style.cursor = 'ew-resize';
+        return;
+      }
+      if (Math.hypot(mouseX - p2.x, mouseY - p2.y) < 14) {
+        resizeHandle = 'handle2';
+        draggedObject = { type: selectedObject.id.startsWith('win-') ? 'window' : 'door', id: selectedObject.id, ref: selectedObject };
+        canvas.style.cursor = 'ew-resize';
+        return;
+      }
+    }
+    resizeHandle = null;
+
+    // 2. Check Vents (35px hit radius)
     if (showElements && twinData.vents) {
       for (const v of twinData.vents) {
         const sp = toScreen2D(v.x, v.y);
-        if (Math.hypot(mouseX - sp.x, mouseY - sp.y) < 20) {
+        if (Math.hypot(mouseX - sp.x, mouseY - sp.y) < 35) {
           draggedObject = { type: 'vent', id: v.id, ref: v };
+          selectedObject = v;
           dragOffsetM = { x: v.x - rx, y: v.y - ry };
           canvas.style.cursor = 'grabbing';
           return;
@@ -802,27 +755,17 @@
       }
     }
 
-    // 2. Check Desks / Workstations
-    if (showElements && twinData.architecture?.workstations) {
-      for (const desk of twinData.architecture.workstations) {
-        const sp = toScreen2D(desk.x, desk.y);
-        if (Math.hypot(mouseX - sp.x, mouseY - sp.y) < 25) {
-          draggedObject = { type: 'workstation', id: desk.id, ref: desk };
-          dragOffsetM = { x: desk.x - rx, y: desk.y - ry };
-          canvas.style.cursor = 'grabbing';
-          return;
-        }
-      }
-    }
-
-    // 3. Check Windows
+    // 3. Check Windows (Segment distance hit testing < 35px)
     if (showElements && twinData.architecture?.windows) {
       for (const win of twinData.architecture.windows) {
-        const midX = (win.x1 + win.x2) / 2;
-        const midY = (win.y1 + win.y2) / 2;
-        const sp = toScreen2D(midX, midY);
-        if (Math.hypot(mouseX - sp.x, mouseY - sp.y) < 20) {
-          draggedObject = { type: 'window', id: win.id, ref: win, width_m: win.width_m || Math.hypot(win.x2 - win.x1, win.y2 - win.y1) };
+        const p1 = toScreen2D(win.x1, win.y1);
+        const p2 = toScreen2D(win.x2, win.y2);
+        const dist = distToSegment(mouseX, mouseY, p1.x, p1.y, p2.x, p2.y);
+        if (dist < 35) {
+          const midX = (win.x1 + win.x2) / 2;
+          const midY = (win.y1 + win.y2) / 2;
+          draggedObject = { type: 'window', id: win.id, ref: win, width_m: win.width_m || 2.0 };
+          selectedObject = win;
           dragOffsetM = { x: midX - rx, y: midY - ry };
           canvas.style.cursor = 'grabbing';
           return;
@@ -830,60 +773,135 @@
       }
     }
 
-    // 4. Check Doors
+    // 4. Check Doors (Segment distance hit testing < 35px)
     if (showElements && twinData.architecture?.doors) {
       for (const door of twinData.architecture.doors) {
-        const midX = (door.x1 + door.x2) / 2;
-        const midY = (door.y1 + door.y2) / 2;
-        const sp = toScreen2D(midX, midY);
-        if (Math.hypot(mouseX - sp.x, mouseY - sp.y) < 20) {
+        const p1 = toScreen2D(door.x1, door.y1);
+        const p2 = toScreen2D(door.x2, door.y2);
+        const dist = distToSegment(mouseX, mouseY, p1.x, p1.y, p2.x, p2.y);
+        if (dist < 35) {
+          const midX = (door.x1 + door.x2) / 2;
+          const midY = (door.y1 + door.y2) / 2;
           draggedObject = { type: 'door', id: door.id, ref: door, width_m: door.width_m || 1.0 };
+          selectedObject = door;
           dragOffsetM = { x: midX - rx, y: midY - ry };
           canvas.style.cursor = 'grabbing';
           return;
         }
       }
     }
+
+    selectedObject = null;
   });
 
   canvas.addEventListener('mousemove', (e) => {
     if (!twinData) return;
-    const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const { mouseX, mouseY } = getCanvasMouseCoords(e);
+    const { rx, ry } = screenToRoom2D(mouseX, mouseY);
 
-    // Handle Active Dragging
+    // Handle Active Resizing of Doors/Windows
+    if (draggedObject && resizeHandle) {
+      const ref = draggedObject.ref;
+      const wall = ref.wall;
+      if (wall === 'north' || wall === 'south') {
+        const newX = Math.round(Math.max(0.0, Math.min(8.0, rx)) * 100) / 100;
+        if (resizeHandle === 'handle1') ref.x1 = Math.min(ref.x2 - 0.5, newX);
+        else ref.x2 = Math.max(ref.x1 + 0.5, newX);
+      } else {
+        const newY = Math.round(Math.max(0.0, Math.min(6.0, ry)) * 100) / 100;
+        if (resizeHandle === 'handle1') ref.y1 = Math.min(ref.y2 - 0.5, newY);
+        else ref.y2 = Math.max(ref.y1 + 0.5, newY);
+      }
+      ref.width_m = Math.round(Math.hypot(ref.x2 - ref.x1, ref.y2 - ref.y1) * 100) / 100;
+
+      const cacheObj = draggedObject.type === 'window' ? layoutCache.windows : layoutCache.doors;
+      cacheObj[ref.id] = {
+        x1: ref.x1, y1: ref.y1, x2: ref.x2, y2: ref.y2,
+        zone_id: ref.zone_id, wall: ref.wall, width_m: ref.width_m
+      };
+
+      updateInspector(
+        `Resizing ${draggedObject.type.toUpperCase()} (${ref.id})`,
+        `Width: ${ref.width_m} m`,
+        'End Handle Drag',
+        '--',
+        `Wall: ${wall.toUpperCase()}`
+      );
+      return;
+    }
+
+    // Handle Active Position Dragging with Auto-Wall Snapping
     if (draggedObject) {
-      const { rx, ry } = screenToRoom2D(mouseX, mouseY);
-      const targetX = Math.max(0.3, Math.min(7.7, rx + dragOffsetM.x));
-      const targetY = Math.max(0.3, Math.min(5.7, ry + dragOffsetM.y));
+      const targetX = rx + dragOffsetM.x;
+      const targetY = ry + dragOffsetM.y;
 
-      if (draggedObject.type === 'vent' || draggedObject.type === 'workstation') {
-        draggedObject.ref.x = Math.round(targetX * 100) / 100;
-        draggedObject.ref.y = Math.round(targetY * 100) / 100;
+      if (draggedObject.type === 'vent') {
+        const roundedX = Math.round(Math.max(0.3, Math.min(7.7, targetX)) * 100) / 100;
+        const roundedY = Math.round(Math.max(0.3, Math.min(5.7, targetY)) * 100) / 100;
+        draggedObject.ref.x = roundedX;
+        draggedObject.ref.y = roundedY;
+        layoutCache.vents[draggedObject.id] = { x: roundedX, y: roundedY };
       } else if (draggedObject.type === 'window' || draggedObject.type === 'door') {
-        const halfW = (draggedObject.width_m || 1.0) / 2;
-        const wall = draggedObject.ref.wall;
-        if (wall === 'north' || wall === 'south') {
-          draggedObject.ref.x1 = Math.round(Math.max(0.2, targetX - halfW) * 100) / 100;
-          draggedObject.ref.x2 = Math.round(Math.min(7.8, targetX + halfW) * 100) / 100;
+        const halfW = (draggedObject.ref.width_m || 1.5) / 2;
+
+        // Auto-Snap to closest wall (North y=0, South y=6, West x=0, East x=8)
+        const dNorth = Math.abs(targetY);
+        const dSouth = Math.abs(6.0 - targetY);
+        const dWest = Math.abs(targetX);
+        const dEast = Math.abs(8.0 - targetX);
+        const minDist = Math.min(dNorth, dSouth, dWest, dEast);
+
+        let wall = draggedObject.ref.wall;
+        let x1, y1, x2, y2;
+
+        if (minDist === dNorth) {
+          wall = 'north';
+          x1 = Math.round(Math.max(0.1, targetX - halfW) * 100) / 100;
+          x2 = Math.round(Math.min(7.9, targetX + halfW) * 100) / 100;
+          y1 = 0.0; y2 = 0.0;
+        } else if (minDist === dSouth) {
+          wall = 'south';
+          x1 = Math.round(Math.max(0.1, targetX - halfW) * 100) / 100;
+          x2 = Math.round(Math.min(7.9, targetX + halfW) * 100) / 100;
+          y1 = 6.0; y2 = 6.0;
+        } else if (minDist === dWest) {
+          wall = 'west';
+          y1 = Math.round(Math.max(0.1, targetY - halfW) * 100) / 100;
+          y2 = Math.round(Math.min(5.9, targetY + halfW) * 100) / 100;
+          x1 = 0.0; x2 = 0.0;
         } else {
-          draggedObject.ref.y1 = Math.round(Math.max(0.2, targetY - halfW) * 100) / 100;
-          draggedObject.ref.y2 = Math.round(Math.min(5.8, targetY + halfW) * 100) / 100;
+          wall = 'east';
+          y1 = Math.round(Math.max(0.1, targetY - halfW) * 100) / 100;
+          y2 = Math.round(Math.min(5.9, targetY + halfW) * 100) / 100;
+          x1 = 8.0; x2 = 8.0;
         }
+
+        const newZone = (x1 < 4.0 && y1 < 3.0) ? 'zone-1' : (x1 >= 4.0 && y1 < 3.0) ? 'zone-2' : (x1 < 4.0 && y1 >= 3.0) ? 'zone-3' : 'zone-4';
+        draggedObject.ref.wall = wall;
+        draggedObject.ref.zone_id = newZone;
+        draggedObject.ref.x1 = x1; draggedObject.ref.y1 = y1;
+        draggedObject.ref.x2 = x2; draggedObject.ref.y2 = y2;
+
+        const cacheObj = draggedObject.type === 'window' ? layoutCache.windows : layoutCache.doors;
+        cacheObj[draggedObject.id] = {
+          x1, y1, x2, y2,
+          zone_id: newZone,
+          wall: wall,
+          width_m: draggedObject.ref.width_m
+        };
       }
 
       updateInspector(
         `Moving ${draggedObject.type.toUpperCase()} (${draggedObject.id})`,
-        `Position: (${targetX.toFixed(2)}m, ${targetY.toFixed(2)}m)`,
-        'Custom Drag',
+        `Position: (${rx.toFixed(2)}m, ${ry.toFixed(2)}m)`,
+        `Wall: ${draggedObject.ref.wall?.toUpperCase() || '--'}`,
         '--',
         'Live Repositioning'
       );
       return;
     }
 
-    // Normal Hover Cursor & Hit Testing
+    // Normal Hover Hit Testing
     hoveredObject = null;
     let tooltipHtml = '';
     let isHoverable = false;
@@ -892,7 +910,7 @@
     if (showOccupants && twinData.occupants) {
       for (const occ of twinData.occupants) {
         const sp = getScreenCoords(occ.x, occ.y, viewMode === '3d' ? 0.9 : 0);
-        if (Math.hypot(mouseX - sp.x, mouseY - sp.y) < 16) {
+        if (Math.hypot(mouseX - sp.x, mouseY - sp.y) < 20) {
           hoveredObject = occ;
           isHoverable = true;
           tooltipHtml = `
@@ -918,16 +936,15 @@
     if (!hoveredObject && showElements && twinData.vents) {
       for (const v of twinData.vents) {
         const sp = getScreenCoords(v.x, v.y, viewMode === '3d' ? v.z : 0);
-        if (Math.hypot(mouseX - sp.x, mouseY - sp.y) < 18) {
+        if (Math.hypot(mouseX - sp.x, mouseY - sp.y) < 35) {
           hoveredObject = v;
           isHoverable = true;
           tooltipHtml = `
-            <strong>🌀 Diffuser Vent ${v.id}</strong> 🖐️ (Drag to move)<br>
+            <strong>🌀 Diffuser Vent ${v.id}</strong> 🖐️ (Click & Drag)<br>
             Zone: ${v.zone_id.toUpperCase()}<br>
             Position: (${v.x}m, ${v.y}m)<br>
             Valve Opening: <strong>${v.valve_opening_pct}%</strong><br>
-            Airflow: <strong>${v.airflow_cfm} CFM</strong><br>
-            Supply Temp: ${v.supply_air_temp_c}°C
+            Airflow: <strong>${v.airflow_cfm} CFM</strong>
           `;
           updateInspector(
             `Vent ${v.id} (${v.zone_id})`,
@@ -941,92 +958,87 @@
       }
     }
 
-    // Check Desks / Workstations
-    if (!hoveredObject && showElements && twinData.architecture?.workstations) {
-      for (const desk of twinData.architecture.workstations) {
-        const sp = getScreenCoords(desk.x, desk.y);
-        if (Math.hypot(mouseX - sp.x, mouseY - sp.y) < 22) {
-          hoveredObject = desk;
+    // Check Windows
+    if (!hoveredObject && showElements && twinData.architecture?.windows) {
+      for (const win of twinData.architecture.windows) {
+        const p1 = toScreen2D(win.x1, win.y1);
+        const p2 = toScreen2D(win.x2, win.y2);
+        if (distToSegment(mouseX, mouseY, p1.x, p1.y, p2.x, p2.y) < 35) {
+          hoveredObject = win;
           isHoverable = true;
           tooltipHtml = `
-            <strong>💻 Workstation ${desk.id}</strong> 🖐️ (Drag to move)<br>
-            Zone: ${desk.zone_id.toUpperCase()}<br>
-            Position: (${desk.x}m, ${desk.y}m)
+            <strong>🪟 Window ${win.id}</strong> 🖐️ (Drag / Resize / Delete)<br>
+            Zone: ${win.zone_id.toUpperCase()}<br>
+            Wall: <strong>${win.wall.toUpperCase()}</strong> · Width: ${win.width_m}m
           `;
-          updateInspector(`Desk ${desk.id}`, '--', '--', '--', '--');
+          updateInspector(`Window ${win.id}`, `Wall: ${win.wall.toUpperCase()}`, `Width: ${win.width_m}m`, '--', 'Drag to any wall');
           break;
         }
       }
     }
 
-    // Check Zones if neither occupant nor vent/desk
-    if (!hoveredObject && twinData.zones) {
-      const { rx, ry } = screenToRoom2D(mouseX, mouseY);
-      if (rx >= 0 && rx <= 8.0 && ry >= 0 && ry <= 6.0) {
-        const zid = rx < 4.0 && ry < 3.0 ? 'zone-1' :
-                    rx >= 4.0 && ry < 3.0 ? 'zone-2' :
-                    rx < 4.0 && ry >= 3.0 ? 'zone-3' : 'zone-4';
-        const z = twinData.zones.find(item => item.id === zid);
-        if (z) {
-          if (z.is_active) {
-            updateInspector(
-              `${z.name} (${z.id})`,
-              `${z.temperature_c} °C`,
-              `${z.valve_opening_pct} %`,
-              `${z.total_heat_load_w} W`,
-              `Setpoint: ${z.target_setpoint_c} °C`
-            );
-          } else {
-            updateInspector(
-              `${z.name} [Unmonitored]`,
-              `No Camera Assigned`,
-              `0 %`,
-              `0 W`,
-              `Inactive`
-            );
-          }
+    // Check Doors
+    if (!hoveredObject && showElements && twinData.architecture?.doors) {
+      for (const door of twinData.architecture.doors) {
+        const p1 = toScreen2D(door.x1, door.y1);
+        const p2 = toScreen2D(door.x2, door.y2);
+        if (distToSegment(mouseX, mouseY, p1.x, p1.y, p2.x, p2.y) < 35) {
+          hoveredObject = door;
+          isHoverable = true;
+          tooltipHtml = `
+            <strong>🚪 Door ${door.id}</strong> 🖐️ (Drag / Resize / Delete)<br>
+            Zone: ${door.zone_id.toUpperCase()}<br>
+            Wall: <strong>${door.wall.toUpperCase()}</strong> · Width: ${door.width_m}m
+          `;
+          updateInspector(`Door ${door.id}`, `Wall: ${door.wall.toUpperCase()}`, `Width: ${door.width_m}m`, '--', 'Drag to any wall');
+          break;
         }
       }
+    }
+
+    // Continuous Point Temperature Inspection when unhovered
+    if (!hoveredObject && twinData && rx >= 0.0 && rx <= 8.0 && ry >= 0.0 && ry <= 6.0) {
+      let pointTemp = null;
+      if (twinData.thermal_heatmap?.grid) {
+        const hm = twinData.thermal_heatmap;
+        const gx = Math.min(hm.nx - 1, Math.max(0, Math.floor((rx / 8.0) * hm.nx)));
+        const gy = Math.min(hm.ny - 1, Math.max(0, Math.floor((ry / 6.0) * hm.ny)));
+        pointTemp = hm.grid[gy][gx];
+      }
+
+      const pZone = rx < 4.0 && ry < 3.0 ? 'Zone 1 (NW)' :
+                    rx >= 4.0 && ry < 3.0 ? 'Zone 2 (NE)' :
+                    rx < 4.0 && ry >= 3.0 ? 'Zone 3 (SW)' : 'Zone 4 (SE)';
+      const tStr = pointTemp !== null && pointTemp !== undefined ? `${pointTemp}°C` : 'Unmonitored';
+
+      tooltipHtml = `
+        <strong>📍 Point Inspector</strong><br>
+        Coord: <strong>(${rx.toFixed(2)}m, ${ry.toFixed(2)}m)</strong><br>
+        Temp: <strong style="color:#2dd4bf;">${tStr}</strong><br>
+        Location: ${pZone}
+      `;
+      updateInspector(`Point (${rx.toFixed(2)}m, ${ry.toFixed(2)}m)`, tStr, '--', '--', pZone);
     }
 
     canvas.style.cursor = isHoverable ? 'grab' : 'default';
 
     if (tooltipHtml) {
       tooltip.innerHTML = tooltipHtml;
-      tooltip.style.left = `${mouseX + 14}px`;
-      tooltip.style.top = `${mouseY + 14}px`;
+      const rect = canvas.getBoundingClientRect();
+      tooltip.style.left = `${(e.clientX - rect.left) + 16}px`;
+      tooltip.style.top = `${(e.clientY - rect.top) + 16}px`;
       tooltip.style.display = 'block';
     } else {
       tooltip.style.display = 'none';
     }
   });
 
-  const stopDragging = async () => {
-    if (!draggedObject) return;
-    canvas.style.cursor = 'default';
-
-    // Build complete layout payload to persist
+  const saveCurrentLayout = async () => {
     const layoutPayload = {
-      vents: {},
-      windows: {},
-      doors: {},
-      workstations: {}
+      vents: layoutCache.vents,
+      windows: layoutCache.windows,
+      doors: layoutCache.doors
     };
-
-    if (twinData.vents) {
-      twinData.vents.forEach(v => { layoutPayload.vents[v.id] = { x: v.x, y: v.y }; });
-    }
-    if (twinData.architecture?.windows) {
-      twinData.architecture.windows.forEach(w => { layoutPayload.windows[w.id] = { x1: w.x1, y1: w.y1, x2: w.x2, y2: w.y2 }; });
-    }
-    if (twinData.architecture?.doors) {
-      twinData.architecture.doors.forEach(d => { layoutPayload.doors[d.id] = { x1: d.x1, y1: d.y1, x2: d.x2, y2: d.y2 }; });
-    }
-    if (twinData.architecture?.workstations) {
-      twinData.architecture.workstations.forEach(desk => { layoutPayload.workstations[desk.id] = { x: desk.x, y: desk.y }; });
-    }
-
-    draggedObject = null;
 
     try {
       await fetch('/api/digital-twin/layout', {
@@ -1035,8 +1047,16 @@
         body: JSON.stringify(layoutPayload)
       });
     } catch (err) {
-      console.warn('Failed to persist dragged layout to backend:', err);
+      console.warn('Failed to persist layout:', err);
     }
+  };
+
+  const stopDragging = async () => {
+    if (!draggedObject) return;
+    canvas.style.cursor = 'default';
+    draggedObject = null;
+    resizeHandle = null;
+    await saveCurrentLayout();
   };
 
   canvas.addEventListener('mouseup', stopDragging);
@@ -1053,6 +1073,111 @@
     document.getElementById('twin-focus-heat').textContent = heat;
     document.getElementById('twin-focus-flow').textContent = flow;
   }
+
+  // ── Element Addition & Removal Controls ────────────────────────────────────
+
+  function deleteTargetElement(target) {
+    if (!target || !twinData) return;
+    const targetId = target.id;
+    let deleted = false;
+
+    if (twinData.architecture?.windows) {
+      const idx = twinData.architecture.windows.findIndex(w => w.id === targetId);
+      if (idx !== -1) {
+        twinData.architecture.windows.splice(idx, 1);
+        delete layoutCache.windows[targetId];
+        deleted = true;
+      }
+    }
+
+    if (!deleted && twinData.architecture?.doors) {
+      const idx = twinData.architecture.doors.findIndex(d => d.id === targetId);
+      if (idx !== -1) {
+        twinData.architecture.doors.splice(idx, 1);
+        delete layoutCache.doors[targetId];
+        deleted = true;
+      }
+    }
+
+    if (deleted) {
+      hoveredObject = null;
+      selectedObject = null;
+      updateInspector('Element Removed', '--', '--', '--', '--');
+      saveCurrentLayout();
+    }
+  }
+
+  document.getElementById('twin-add-window')?.addEventListener('click', async () => {
+    if (!twinData || !twinData.architecture) return;
+    const winId = `win-${Date.now().toString().slice(-4)}`;
+    const activeZones = Array.from(getActiveZoneIds());
+    const targetZone = activeZones[0] || 'zone-1';
+
+    const newWin = {
+      id: winId,
+      zone_id: targetZone,
+      wall: 'north',
+      x1: 1.5, y1: 0.0, x2: 3.5, y2: 0.0,
+      z_bottom: 1.0, z_top: 2.3,
+      width_m: 2.0
+    };
+
+    if (!twinData.architecture.windows) twinData.architecture.windows = [];
+    twinData.architecture.windows.push(newWin);
+    layoutCache.windows[winId] = {
+      x1: newWin.x1, y1: newWin.y1, x2: newWin.x2, y2: newWin.y2,
+      zone_id: targetZone, wall: 'north', width_m: 2.0
+    };
+
+    selectedObject = newWin;
+    updateInspector(`Added Window ${winId}`, 'North Wall', '--', '--', 'Drag to any wall');
+    await saveCurrentLayout();
+  });
+
+  document.getElementById('twin-add-door')?.addEventListener('click', async () => {
+    if (!twinData || !twinData.architecture) return;
+    const doorId = `door-${Date.now().toString().slice(-4)}`;
+    const activeZones = Array.from(getActiveZoneIds());
+    const targetZone = activeZones[0] || 'zone-1';
+
+    const newDoor = {
+      id: doorId,
+      zone_id: targetZone,
+      wall: 'west',
+      x1: 0.0, y1: 1.5, x2: 0.0, y2: 2.5,
+      z_bottom: 0.0, z_top: 2.1,
+      width_m: 1.0
+    };
+
+    if (!twinData.architecture.doors) twinData.architecture.doors = [];
+    twinData.architecture.doors.push(newDoor);
+    layoutCache.doors[doorId] = {
+      x1: newDoor.x1, y1: newDoor.y1, x2: newDoor.x2, y2: newDoor.y2,
+      zone_id: targetZone, wall: 'west', width_m: 1.0
+    };
+
+    selectedObject = newDoor;
+    updateInspector(`Added Door ${doorId}`, 'West Wall', '--', '--', 'Drag to any wall');
+    await saveCurrentLayout();
+  });
+
+  document.getElementById('twin-delete-element')?.addEventListener('click', () => {
+    const target = hoveredObject || selectedObject;
+    if (target) {
+      deleteTargetElement(target);
+    } else {
+      updateInspector('No Element Selected', 'Click a Window/Door first', '--', '--', '--');
+    }
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Delete' || e.key === 'Backspace') {
+      const target = hoveredObject || selectedObject;
+      if (target && (target.id.startsWith('win-') || target.id.startsWith('door-'))) {
+        deleteTargetElement(target);
+      }
+    }
+  });
 
   // ── UI Controls ─────────────────────────────────────────────────────────────
   document.getElementById('twin-view-2d')?.addEventListener('click', () => {
@@ -1089,27 +1214,20 @@
 
   document.getElementById('twin-reset-layout')?.addEventListener('click', async () => {
     const defaultLayout = {
-      vents: {
-        'vent-1-1': { x: 1.5, y: 1.2 }, 'vent-1-2': { x: 3.0, y: 2.0 },
-        'vent-2-1': { x: 5.0, y: 1.2 }, 'vent-2-2': { x: 6.5, y: 2.0 },
-        'vent-3-1': { x: 1.5, y: 4.2 }, 'vent-3-2': { x: 3.0, y: 5.0 },
-        'vent-4-1': { x: 5.0, y: 4.2 }, 'vent-4-2': { x: 6.5, y: 5.0 }
-      },
+      vents: {},
       windows: {
-        'win-1': { x1: 1.0, y1: 0.0, x2: 3.5, y2: 0.0 },
-        'win-2': { x1: 4.5, y1: 0.0, x2: 7.0, y2: 0.0 },
-        'win-3': { x1: 0.0, y1: 3.8, x2: 0.0, y2: 5.2 },
-        'win-4': { x1: 4.8, y1: 6.0, x2: 6.8, y2: 6.0 }
+        'win-1': { x1: 1.0, y1: 0.0, x2: 3.5, y2: 0.0, zone_id: 'zone-1', wall: 'north', width_m: 2.5 },
+        'win-2': { x1: 4.5, y1: 0.0, x2: 7.0, y2: 0.0, zone_id: 'zone-2', wall: 'north', width_m: 2.5 },
+        'win-3': { x1: 0.0, y1: 3.8, x2: 0.0, y2: 5.2, zone_id: 'zone-3', wall: 'west', width_m: 1.4 },
+        'win-4': { x1: 4.8, y1: 6.0, x2: 6.8, y2: 6.0, zone_id: 'zone-4', wall: 'south', width_m: 2.0 }
       },
       doors: {
-        'door-1': { x1: 0.0, y1: 1.0, x2: 0.0, y2: 2.0 },
-        'door-2': { x1: 8.0, y1: 4.2, x2: 8.0, y2: 5.2 }
-      },
-      workstations: {
-        'desk-1': { x: 1.8, y: 1.6 }, 'desk-2': { x: 5.8, y: 1.6 },
-        'desk-3': { x: 1.8, y: 4.4 }, 'desk-4': { x: 5.8, y: 4.4 }
+        'door-1': { x1: 0.0, y1: 1.0, x2: 0.0, y2: 2.0, zone_id: 'zone-1', wall: 'west', width_m: 1.0 },
+        'door-2': { x1: 8.0, y1: 4.2, x2: 8.0, y2: 5.2, zone_id: 'zone-4', wall: 'east', width_m: 1.0 }
       }
     };
+
+    layoutCache = defaultLayout;
 
     try {
       await fetch('/api/digital-twin/layout', {
@@ -1130,6 +1248,7 @@
       const res = await fetch('/api/digital-twin/state');
       if (res.ok) {
         twinData = await res.json();
+        applyLayoutOverridesToTwinData();
         updateStatsBadge();
       }
     } catch (e) {
@@ -1153,14 +1272,12 @@
     if (bOcc) bOcc.textContent = `${occCnt} Occupant${occCnt === 1 ? '' : 's'}`;
   }
 
-  // Listen to WebSocket broadcasts from window.digitalTwinHandler or global hook
   window.updateDigitalTwinState = function(data) {
-    if (draggedObject) return; // Don't overwrite state while user is actively dragging an item
     twinData = data;
+    applyLayoutOverridesToTwinData();
     updateStatsBadge();
   };
 
-  // Start loop and initial fetch
   fetchDigitalTwinState();
   animationFrameId = requestAnimationFrame(render);
 })();

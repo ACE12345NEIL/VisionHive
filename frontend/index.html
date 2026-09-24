@@ -68,26 +68,34 @@
               <button type="button" id="twin-toggle-heatmap" class="twin-toggle-btn active" title="Toggle Thermal Heat Map">🔥 Heatmap</button>
               <button type="button" id="twin-toggle-vectors" class="twin-toggle-btn active" title="Toggle Airflow Vectors">💨 Airflow</button>
               <button type="button" id="twin-toggle-elements" class="twin-toggle-btn active" title="Toggle Vents & Architecture">🚪 Vents & Walls</button>
-              <button type="button" id="twin-reset-layout" class="twin-toggle-btn" title="Reset Room Layout to Default Positions" style="border-color:rgba(245,158,11,0.5);color:#f59e0b;">🔄 Reset Layout</button>
+            </div>
+            <div class="twin-btn-group">
+              <button type="button" id="twin-add-window" class="twin-toggle-btn" title="Add New Window" style="border-color:rgba(56,189,248,0.5);color:#38bdf8;">🪟 + Window</button>
+              <button type="button" id="twin-add-door" class="twin-toggle-btn" title="Add New Door" style="border-color:rgba(245,158,11,0.5);color:#f59e0b;">🚪 + Door</button>
+              <button type="button" id="twin-delete-element" class="twin-toggle-btn" title="Delete Selected Window/Door/Vent" style="border-color:rgba(244,63,94,0.5);color:#f43f5e;">❌ Delete</button>
+              <button type="button" id="twin-reset-layout" class="twin-toggle-btn" title="Reset Room Layout to Default Positions" style="border-color:rgba(148,163,184,0.5);color:#94a3b8;">🔄 Reset</button>
             </div>
           </div>
         </div>
 
         <div class="twin-canvas-wrapper">
-          <canvas id="digital-twin-canvas" width="800" height="500"></canvas>
+          <canvas id="digital-twin-canvas" width="1200" height="720"></canvas>
           <div id="twin-tooltip" class="twin-tooltip" style="display:none;"></div>
+          <div class="twin-stats-badge" id="twin-stats-badge">
+            <span id="twin-badge-ac">AC: ON</span>
+            <span id="twin-badge-cfm">600 CFM</span>
+            <span id="twin-badge-occupants">0 Occupants</span>
+            <span style="color:#2dd4bf;font-weight:600;">🖐️ Drag items to customize</span>
+          </div>
+        </div>
+
+        <div class="twin-footer-bar">
           <div class="twin-legend">
             <span class="legend-label">Thermal Gradient (°C):</span>
             <div class="legend-bar"></div>
             <div class="legend-ticks">
               <span>18°</span><span>20°</span><span>22°</span><span>24°</span><span>26°+</span>
             </div>
-          </div>
-          <div class="twin-stats-badge" id="twin-stats-badge">
-            <span id="twin-badge-ac">AC: ON</span>
-            <span id="twin-badge-cfm">600 CFM</span>
-            <span id="twin-badge-occupants">0 Occupants</span>
-            <span style="color:#2dd4bf;font-weight:600;">🖐️ Drag items to customize</span>
           </div>
         </div>
 

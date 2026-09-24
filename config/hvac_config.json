@@ -11,10 +11,10 @@
   "default_fan_speed": "auto",
   "default_ac_mode": "cool",
   "zone_vent_counts": {
-    "zone-1": 2,
+    "zone-1": 5,
     "zone-2": 2,
     "zone-3": 2,
-    "zone-4": 2
+    "zone-4": 3
   },
   "zone_lighting_config": {
     "zone-1": {
