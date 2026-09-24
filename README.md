@@ -94,8 +94,6 @@ Open **`http://127.0.0.1:8000`** in your browser to access the live dashboard.
 | Per-Vent Valve Modulation & Airflow CFM: Individual valve percentage and CFM allocation for every vent in each active zone | ✅ Implemented |
 | AC ON / STANDBY & Fan Speed Controller: Automated mode switching and fan speed selection | ✅ Implemented |
 | Non-Hardcoded Zone Lighting Configuration: Configurable fixture count and wattage rating per zone | ✅ Implemented |
-| BACnet / Modbus Hardware Protocol Gateway | 🔮 Future Scope |
-| Multi-Chiller Plant Optimization & Supply Air Temperature Reset | 🔮 Future Scope |
 
 ### Domain 3: Machine Learning (ML)
 
@@ -107,7 +105,6 @@ Open **`http://127.0.0.1:8000`** in your browser to access the live dashboard.
 | Model Evaluation Metrics: Automated RMSE, MAE, and R² model comparison | ✅ Implemented |
 | HVAC Power & Energy Prediction Model: Predicts active power (W) and energy consumption (kWh) | ✅ Implemented |
 | Deep Reinforcement Learning (DRL) HVAC Controller (PPO / SAC) | 🔮 Future Scope |
-| Automated Online Retraining & Concept Drift Detection | 🔮 Future Scope |
 
 ### Domain 4: Digital Twin & Simulation
 
