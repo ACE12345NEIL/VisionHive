@@ -28,6 +28,7 @@ from hvac.control_engine import HVACControlEngine
 from ml.thermal_model import train_thermal_models
 from ml.energy_model import train_energy_model
 from simulation.engine import run_simulation
+from simulation.whatif import PRESET_SCENARIOS, run_what_if_scenario
 from digital_twin.engine import digital_twin_engine
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
@@ -120,6 +121,81 @@ async def run_simulation_api(payload: dict):
         active_zone_ids=active_zone_ids,
     )
     return result
+
+@app.get('/api/scenarios/presets')
+def get_scenario_presets():
+    """Stage 22: Returns available What-If scenario presets with id field."""
+    from simulation.whatif import PRESET_SCENARIOS
+    return [
+        {'id': k, 'name': v['name'], 'description': v['description']}
+        for k, v in PRESET_SCENARIOS.items()
+    ]
+
+@app.post('/api/scenarios/what-if')
+async def run_what_if_api(payload: dict):
+    """Stage 22: Executes What-If scenario analysis — returns formatted success response."""
+    from simulation.whatif import run_what_if_scenario, PRESET_SCENARIOS
+    # Accept either 'preset_id' (new JS) or 'preset' (legacy)
+    preset_id = str(payload.get('preset_id') or payload.get('preset') or 'heatwave_surge')
+    custom_config = payload.get('custom_config')
+
+    raw = await asyncio.to_thread(run_what_if_scenario, preset_key=preset_id, custom_config=custom_config)
+
+    kpi = raw['kpi_summary']
+    zone_cmps = raw['zone_comparisons']
+    timeline_raw = raw['timeline_comparison']
+
+    formatted_zones = []
+    for zid, zval in zone_cmps.items():
+        formatted_zones.append({
+            'zone_id': zid,
+            'baseline_avg_temp': zval['baseline'].get('avg_temp_c', 22.0),
+            'scenario_avg_temp': zval['scenario'].get('avg_temp_c', 22.0),
+            'temp_delta': zval['deltas'].get('avg_temp_c_delta', 0.0),
+            'scenario_max_temp': zval['scenario'].get('max_temp_c', 22.0),
+            'risk_status': zval['risk_level']
+        })
+
+    # Downsample to hourly points for chart
+    hourly = {}
+    for step in timeline_raw:
+        hr = int(step['hour'])
+        if hr not in hourly:
+            hourly[hr] = step
+    hours = sorted(hourly.keys())
+
+    active_zones = raw['scenario_info']['active_zones']
+    zone_timelines = {
+        zid: {
+            'baseline': [hourly[h]['zones'].get(zid, {}).get('baseline_temp_c', 22.0) for h in hours],
+            'scenario': [hourly[h]['zones'].get(zid, {}).get('scenario_temp_c', 22.0) for h in hours]
+        }
+        for zid in active_zones
+    }
+
+    n = max(1, len(formatted_zones))
+    return {
+        'success': True,
+        'preset_id': preset_id,
+        'scenario_name': raw['scenario_info']['name'],
+        'kpi_summary': {
+            'baseline_kwh':    kpi['baseline_energy_kwh'],
+            'scenario_kwh':    kpi['scenario_energy_kwh'],
+            'kwh_delta':       kpi['energy_delta_kwh'],
+            'kwh_pct_change':  kpi['energy_delta_pct'],
+            'baseline_avg_temp': round(sum(z['baseline_avg_temp'] for z in formatted_zones) / n, 1),
+            'scenario_avg_temp': round(sum(z['scenario_avg_temp'] for z in formatted_zones) / n, 1),
+            'temp_delta':        round(sum(z['temp_delta']         for z in formatted_zones) / n, 1),
+            'scenario_max_temp': round(max((z['scenario_max_temp'] for z in formatted_zones), default=22.0), 1),
+            'baseline_max_temp': round(max((z['baseline_avg_temp'] for z in formatted_zones), default=22.0), 1),
+            'max_temp_delta':    round(max((z['scenario_max_temp'] - z['baseline_avg_temp'] for z in formatted_zones), default=0.0), 1)
+        },
+        'zone_comparisons': formatted_zones,
+        'timeline_comparison': {
+            'hours': hours,
+            'zones': zone_timelines
+        }
+    }
  
 @app.get('/api/digital-twin/state')
 def get_digital_twin_state():
@@ -277,6 +353,110 @@ def get_hvac_control_api():
     except Exception:
         weather_info = {"outdoor_temperature": 25.0, "solar_radiation": 150.0}
     return hvac_engine.evaluate_control(zone_manager.state, weather_info)
+
+# STAGE 20: FAST-FORWARD SIMULATION ENDPOINT
+@app.post('/api/simulation/run')
+def run_fast_forward_simulation(payload: dict):
+    """Stage 20: Fast-forward 24h thermal simulation."""
+    hours = int(payload.get('hours', 24))
+    hvac_setpoint = float(payload.get('hvac_setpoint_c', 22.0))
+    t_min = float(payload.get('outdoor_temp_min', 22.0))
+    t_max = float(payload.get('outdoor_temp_max', 35.0))
+    solar = float(payload.get('peak_solar_w_m2', 600.0))
+    activity = str(payload.get('activity_level', 'low'))
+    ac_on = bool(payload.get('ac_enabled', True))
+
+    assignments = load_assignments()
+    active_zones = sorted({z for z in assignments.values() if z}) or ['zone-1', 'zone-4']
+
+    res = run_simulation(
+        hours=hours,
+        outdoor_temp_min=t_min,
+        outdoor_temp_max=t_max,
+        peak_solar_w_m2=solar,
+        hvac_setpoint_c=hvac_setpoint,
+        ac_enabled=ac_on,
+        activity_level=activity,
+        active_zone_ids=active_zones
+    )
+    return res
+
+# STAGE 22: WHAT-IF SCENARIO ANALYSIS ENDPOINTS
+@app.get('/api/scenarios/presets')
+def get_scenario_presets():
+    """Stage 22: Returns list of available preset What-If scenarios."""
+    presets_list = []
+    for k, v in PRESET_SCENARIOS.items():
+        item = dict(v)
+        item['id'] = k
+        presets_list.append(item)
+    return presets_list
+
+@app.post('/api/scenarios/what-if')
+def execute_whatif_scenario(payload: dict):
+    """Stage 22: Executes baseline vs hypothetical What-If scenario analysis."""
+    preset_id = payload.get('preset_id', 'heatwave_surge')
+    custom_cfg = payload.get('custom_config', None)
+    
+    analysis_res = run_what_if_scenario(preset_key=preset_id, custom_config=custom_cfg)
+    
+    # Format response for frontend JS consumption
+    kpi = analysis_res['kpi_summary']
+    zone_cmps = analysis_res['zone_comparisons']
+    timeline_raw = analysis_res['timeline_comparison']
+
+    formatted_zone_cmps = []
+    for zid, zval in zone_cmps.items():
+        b_sum = zval['baseline']
+        s_sum = zval['scenario']
+        deltas = zval['deltas']
+        formatted_zone_cmps.append({
+            'zone_id': zid,
+            'baseline_avg_temp': b_sum.get('avg_temp_c', 22.0),
+            'scenario_avg_temp': s_sum.get('avg_temp_c', 22.0),
+            'temp_delta': deltas.get('avg_temp_c_delta', 0.0),
+            'scenario_max_temp': s_sum.get('max_temp_c', 22.0),
+            'risk_status': zval['risk_level']
+        })
+
+    # Timeline downsampling for line charts (take 1 point per hour)
+    hourly_points = {}
+    for step in timeline_raw:
+        hr = int(step['hour'])
+        if hr not in hourly_points:
+            hourly_points[hr] = step
+
+    hours = sorted(hourly_points.keys())
+    zone_timelines = {}
+    for zid in analysis_res['scenario_info']['active_zones']:
+        zone_timelines[zid] = {
+            'baseline': [hourly_points[h]['zones'].get(zid, {}).get('baseline_temp_c', 22.0) for h in hours],
+            'scenario': [hourly_points[h]['zones'].get(zid, {}).get('scenario_temp_c', 22.0) for h in hours]
+        }
+
+    return {
+        'success': True,
+        'preset_id': preset_id,
+        'scenario_name': analysis_res['scenario_info']['name'],
+        'kpi_summary': {
+            'baseline_kwh': kpi['baseline_energy_kwh'],
+            'scenario_kwh': kpi['scenario_energy_kwh'],
+            'kwh_delta': kpi['energy_delta_kwh'],
+            'kwh_pct_change': kpi['energy_delta_pct'],
+            'baseline_avg_temp': round(sum(z['baseline_avg_temp'] for z in formatted_zone_cmps) / max(1, len(formatted_zone_cmps)), 1),
+            'scenario_avg_temp': round(sum(z['scenario_avg_temp'] for z in formatted_zone_cmps) / max(1, len(formatted_zone_cmps)), 1),
+            'temp_delta': round(sum(z['temp_delta'] for z in formatted_zone_cmps) / max(1, len(formatted_zone_cmps)), 1),
+            'baseline_max_temp': round(max((z['baseline_avg_temp'] for z in formatted_zone_cmps), default=22.0), 1),
+            'scenario_max_temp': round(max((z['scenario_max_temp'] for z in formatted_zone_cmps), default=22.0), 1),
+            'max_temp_delta': round(max((z['scenario_max_temp'] - z['baseline_avg_temp'] for z in formatted_zone_cmps), default=0.0), 1)
+        },
+        'zone_comparisons': formatted_zone_cmps,
+        'timeline_comparison': {
+            'hours': hours,
+            'outdoor_temp': [hourly_points[h]['outdoor_temp_scenario'] for h in hours],
+            'zones': zone_timelines
+        }
+    }
 
 @app.websocket('/ws/live')
 async def live(ws: WebSocket):

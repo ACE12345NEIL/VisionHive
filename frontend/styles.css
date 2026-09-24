@@ -361,3 +361,75 @@ main{max-width:1440px;margin:auto;padding:32px 3vw 60px}
   font-weight: 600;
   color: var(--text);
 }
+
+/* Stage 22: What-If Scenario Analysis Panel */
+.whatif-panel {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  padding: 20px;
+}
+.whatif-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 8px;
+}
+/* Explicitly reset whatif preset buttons — must override global .save-btn */
+.whatif-preset-btn,
+.whatif-preset-btn:not(.save-btn) {
+  background: #081211 !important;
+  color: var(--text-dim) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px;
+  padding: 7px 12px;
+  font: 500 12px Inter, sans-serif !important;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+.whatif-preset-btn:hover {
+  border-color: var(--border-strong) !important;
+  color: var(--text) !important;
+  opacity: 1;
+}
+.whatif-preset-btn.active {
+  background: var(--accent-dim) !important;
+  color: var(--accent) !important;
+  border-color: var(--accent) !important;
+  font-weight: 600 !important;
+  opacity: 1;
+}
+.whatif-desc {
+  font-size: 11px;
+  color: var(--text-dim);
+  background: var(--panel-alt);
+  border: 1px solid rgba(45, 212, 191, 0.08);
+  border-radius: 6px;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+.whatif-risk-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+.whatif-risk-chip {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #081211;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 11px;
+}
+.chip-zone {
+  font-weight: 700;
+  color: var(--text);
+}
+.chip-temp {
+  color: var(--text-dim);
+}
+

@@ -298,6 +298,29 @@
 
       </section>
 
+      <!-- Stage 22: What-If Scenario Analysis Engine -->
+      <section class="whatif-panel" style="margin-top:20px;">
+        <h2>🔮 What-If Scenario Analysis</h2>
+        <p class="sim-desc">Compare baseline performance against hypothetical extreme events, heatwaves, or setpoint changes.</p>
+        
+        <label style="font-size:11px;color:var(--text-dim);font-weight:600;">Preset Scenarios:</label>
+        <div id="whatif-preset-buttons" class="whatif-presets">
+          <!-- Dynamically populated preset buttons -->
+        </div>
+
+        <div id="whatif-preset-desc" class="whatif-desc">Select a preset scenario above to evaluate thermal dynamics and energy deltas.</div>
+
+        <button type="button" class="save-btn" id="whatif-run-btn" style="width:100%;">⚡ Run Scenario Simulation</button>
+        <div id="whatif-status" style="margin-top:8px;font-size:0.82rem;color:#94a3b8;"></div>
+
+        <div id="whatif-results" class="sim-results" style="display:none;margin-top:16px;">
+          <div id="whatif-kpi-cards" class="sim-summary-cards"></div>
+          <div id="whatif-chart-container" style="margin-top:14px;background:#081211;border:1px solid var(--border);border-radius:10px;padding:12px;height:240px;">
+            <canvas id="whatif-chart"></canvas>
+          </div>
+        </div>
+      </section>
+
     </aside>
   </div>
 </main>
@@ -306,6 +329,7 @@
 <script src="/frontend/app.js"></script>
 
 <script src="/frontend/simulation.js"></script>
-<script src="/frontend/digital_twin.js"></script>
+<script src="/frontend/digital_twin.js"></script>
+<script src="/frontend/what_if.js"></script>
 </body>
 </html>

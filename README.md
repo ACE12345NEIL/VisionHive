@@ -24,7 +24,7 @@ Open **`http://127.0.0.1:8000`** in your browser to access the live dashboard.
 
 ---
 
-## Stages Implemented (Stages 1 – 21) ✅
+## Stages Implemented (Stages 1 – 22) ✅
 
 | Stage | Title | Description |
 |-------|-------|-------------|
@@ -49,16 +49,16 @@ Open **`http://127.0.0.1:8000`** in your browser to access the live dashboard.
 | 19 | **Performance Optimization** | Vision pipeline latency profiling (`VisionPerformanceProfiler`), per-frame processing & YOLO inference timer instrumentation, occupancy heatmap generation via homography-mapped pixel coordinates, FPS tracking, and live performance metrics endpoint (`/api/vision/performance`). |
 | 20 | **Fast-Forward Simulation Engine** | Accelerated time-step simulation engine (`simulation/engine.py`) running up to 24 hours of room thermal dynamics in seconds. Physics ODE integrator with 1-minute timesteps, proportional HVAC valve control, inter-zone thermal coupling, diurnal solar/weather models, occupancy schedules, and energy accumulation. Filtered strictly to active camera-assigned zones (`camera_zones.json`). REST endpoint `POST /api/simulation/run`. Interactive frontend panel with Chart.js temperature timeline and per-zone summary cards (avg/peak/min temp, energy kWh, comfort %). |
 | 21 | **Spatial Digital Twin (2D / 3D), HD Map & Interactive Customizer** | High-definition 1200x720 2D architectural floor plan & 3D isometric spatial model (`digital_twin/engine.py`, `frontend/digital_twin.js`). Features 32x24 high-density thermal heatmap grid; **continuous real-time point temperature inspection (hover anywhere to view exact °C and physical coords)**; dynamic HVAC vent count syncing (e.g. 5 vents per zone); **interactive element customization with auto wall snapping (drag doors/windows to North, South, East, West walls), endpoint resize handles, 🪟 + Window / 🚪 + Door addition, ❌ Delete controls, 1:1 scaling cursor pick alignment, non-overlapping legend placement, and REST persistence (`config/room_layout.json`)**; live WebSocket/REST synchronization (`/api/digital-twin/state`). |
+| 22 | **What-If Scenario Analysis Engine** | Interactive hypothetical scenario testing engine (`simulation/whatif.py`, `frontend/what_if.js`). Features 5 built-in presets (*Heatwave & Occupancy Surge*, *Infiltration Open Windows*, *Server Heat Load Spike*, *Eco Mode Setpoint*, *Aggressive Overcooling*); baseline vs hypothetical scenario ODE simulations run side-by-side; calculates energy impact deltas ($\Delta\text{kWh}$ & %), average and peak thermal stress deltas ($\Delta^\circ\text{C}$), zone thermal risk categorization (*HIGH_THERMAL_STRESS*, *OVERCOOLING*, *COMFORT_DEGRADATION*, *NORMAL*); side-by-side Chart.js timeline graph; REST endpoints `GET /api/scenarios/presets` & `POST /api/scenarios/what-if`. |
 
 ---
 
-## Pending Stages (Stages 22 – 25)
+## Pending Stages (Stages 23 – 25)
 
 > **Note:** README is updated at the completion of every stage.
 
 | Stage | Title | Description |
 |-------|-------|-------------|
-| 22 | **What-If Scenario Analysis** | Interactive scenario tester (e.g., *"What if 10 extra people enter Zone 1 during a 35°C heatwave?"*). |
 | 23 | **Digital Twin Scenario Comparison** | Side-by-side comparison matrix of different energy-saving vs. comfort-maximizing HVAC policies. |
 | 24 | **Final Frontend** | Full UI design polish, executive reporting dashboard, and theme refinements. |
 | 25 | **Final Evaluation** | End-to-end system benchmarking and performance evaluation metrics. |
@@ -113,7 +113,7 @@ Open **`http://127.0.0.1:8000`** in your browser to access the live dashboard.
 | 2D Live Grid Room Dashboard: Real-time quadrant occupancy, device load, and valve opening status | ✅ Implemented |
 | Fast-Forward Accelerated Time-Step Simulation Engine: 1-min ODE steps, diurnal weather, occupancy schedules, HVAC auto-control, energy accumulation, Chart.js timeline (Stage 20) | ✅ Implemented |
 | Interactive 3D/2D Spatial Digital Twin: Real-time occupant markers, continuous thermal heatmaps & airflow vector fields (Stage 21) | ✅ Implemented |
-| Interactive "What-If" Scenario Analysis Engine (Stage 22) | 🔮 Future Scope |
+| Interactive "What-If" Scenario Analysis Engine (Stage 22) | ✅ Implemented |
 | Digital Twin Policy Comparison Matrix (Stage 23) | 🔮 Future Scope |
 
 ---
