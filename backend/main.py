@@ -17,6 +17,7 @@ from vision.camera import CameraWorker, latest_jpegs
 from vision.detection import Detector
 from vision.tracking import CentroidTracker
 from vision.fusion import CameraFusion
+from vision.analytics import profiler
 from thermal.zones import ZoneStateManager
 from thermal.heat_load import calculate_all_zones_heat_load
 from thermal.response import predict_zone_trajectories
@@ -82,6 +83,11 @@ def dashboard():
 @app.get('/api/health')
 def health():
     return {'status': 'ok', 'enabled_cameras': len(workers), 'detector_enabled': settings.detector['enabled']}
+
+@app.get('/api/vision/performance')
+def vision_performance():
+    """Stage 19: Return vision pipeline performance metrics."""
+    return profiler.get_metrics()
 
 @app.get('/api/room')
 def room():

@@ -5,9 +5,14 @@ import cv2
 from pathlib import Path
 from backend.schemas import CameraFrameResult
 from .preprocessing import preprocess, resize
+from .analytics import profiler
+
+from .homography import HomographyMapper
 
 latest_jpegs = {}
 latest_frames = {}
+
+homography_mapper = HomographyMapper()
 
 
 # Vibrant Color Palette for Bounding Boxes (BGR format)
@@ -118,15 +123,21 @@ class CameraWorker:
             if delay > 0:
                 await asyncio.sleep(delay)
             last = time.monotonic()
+            # Start frame processing timer
+            profiler.start_timer('frame_processing')
             frame = resize(frame, self.settings['width'])
             processed = preprocess(frame, self.settings['preprocessing'])
             detector_frame = cv2.cvtColor(processed, cv2.COLOR_GRAY2BGR) if processed.ndim == 2 else processed
+            # Start inference timer
+            profiler.start_timer('inference')
             async with self.inference_lock:
                 detections = await asyncio.to_thread(self.detector.detect, detector_frame, self.camera.id)
+            profiler.stop_timer('inference')
             tracks = self.motion.analyze(detector_frame, self.tracker.update(detections))
-            
             # Cache preview with high-visibility labeled bounding boxes
             cache_preview(self.camera.id, detector_frame, detections, tracks)
+            # Stop frame processing timer
+            profiler.stop_timer('frame_processing')
             
             await self.on_result(CameraFrameResult(
                 camera_id=self.camera.id,
@@ -135,6 +146,15 @@ class CameraWorker:
                 detections=detections,
                 tracks=tracks
             ))
+                        # Update occupancy heatmap for detected persons
+            for det in detections:
+                if det.class_name.lower() == 'person':
+                    box = det.bbox
+                    cx = (box.x1 + box.x2) / 2
+                    cy = (box.y1 + box.y2) / 2
+                    rx, ry = homography_mapper.pixel_to_room(self.camera.id, cx, cy)
+                    profiler.update_heatmap(rx, ry)
+            profiler.record_fps(round(1 / max(time.monotonic() - now, .001), 1))
             await asyncio.sleep(0)
         cap.release()
         self.running = False
