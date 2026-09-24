@@ -1,32 +1,113 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>VisionHive</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"><link rel="stylesheet" href="/frontend/styles.css"></head><body>
-<header><div><span class="mark">VH</span><strong>VisionHive</strong></div><span id="status">Connecting</span></header>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>VisionHive — HVAC Control & Valve Optimization</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/frontend/styles.css">
+</head>
+<body>
+<header>
+  <div>
+    <span class="mark">VH</span>
+    <strong>VisionHive</strong>
+  </div>
+  <span id="status">Connecting</span>
+</header>
+
 <main>
+  <!-- Environment Strip -->
+  <section class="environment-panel">
+    <form id="location-form">
+      <input id="location-query" placeholder="Site location, e.g. Pune, India" required>
+      <button>Set</button>
+    </form>
+    <div class="environment-actions">
+      <button id="weather-refresh" type="button">Refresh weather</button>
+      <button id="indoor-load" type="button">Indoor dataset</button>
+      <button id="train-ml-btn" type="button" class="accent-btn">Train ML Models</button>
+    </div>
+    <div id="environment-status">No location set.</div>
+  </section>
 
-<section class="environment-panel">
-<form id="location-form"><input id="location-query" placeholder="Site location, e.g. Pune, India" required><button>Set</button></form>
-<div class="environment-actions"><button id="weather-refresh" type="button">Refresh weather</button><button id="indoor-load" type="button">Indoor dataset</button></div>
-<div id="environment-status">No location set.</div>
-</section>
+  <div class="grid">
+    <!-- Left Column: Camera Streams & Fused Occupancy -->
+    <div class="left-col">
+      <section class="camera-panel">
+        <h2>Camera Streams</h2>
+        <div id="cameras" class="empty">Awaiting camera streams…</div>
+      </section>
 
-<div class="grid">
+      <section class="fusion-panel" style="margin-top:20px;">
+        <h2>Fused Occupancy</h2>
+        <div id="fusion-status">No cross-camera overlap configured.</div>
+      </section>
 
-<section class="camera-panel">
-<h2>Cameras</h2>
-<div id="cameras" class="empty">Awaiting camera streams…</div>
-</section>
+      <section class="zones-panel" style="margin-top:20px;">
+        <h2>Thermal Zones & Occupancy</h2>
+        <div id="zones" class="zones"></div>
+      </section>
+    </div>
 
-<aside class="side">
-<section class="fusion-panel">
-<h2>Fused occupancy</h2>
-<div id="fusion-status">No cross-camera overlap configured.</div>
-</section>
+    <!-- Right Column: HVAC System Specs, Vent Configuration & Valve Control -->
+    <aside class="side">
+      <!-- HVAC System Specification Panel -->
+      <section class="hvac-config-panel">
+        <h2>HVAC System Specifications</h2>
+        <form id="hvac-config-form">
+          <div class="field-group">
+            <label>System Architecture</label>
+            <select id="hvac-system-type">
+              <option value="Variable Air Volume (VAV) with Zone Dampers/Valves">Variable Air Volume (VAV) with Zone Dampers/Valves</option>
+              <option value="Centralized Chilled Water FCU with Motorized Zone Valves">Centralized Chilled Water FCU with Motorized Zone Valves</option>
+              <option value="VRF Multi-Split HVAC with Electronic Expansion Valves">VRF Multi-Split HVAC with Electronic Expansion Valves</option>
+            </select>
+          </div>
 
-<article class="zones-panel">
-<h2>Zones</h2>
-<div id="zones" class="zones"></div>
-</article>
-</aside>
+          <div class="field-row">
+            <div class="field-group">
+              <label>Target Setpoint (°C)</label>
+              <input type="number" id="hvac-setpoint" min="16" max="30" step="0.5" value="22.0">
+            </div>
+            <div class="field-group">
+              <label>Supply Air Temp (°C)</label>
+              <input type="number" id="hvac-supply-temp" min="10" max="20" step="0.5" value="14.0">
+            </div>
+          </div>
 
-</div>
+          <h3 class="subheading">Vent Count per Thermal Zone</h3>
+          <div id="vent-selectors-grid" class="vent-selectors-grid">
+            <!-- Dynamically populated for active camera-assigned zones -->
+          </div>
+
+          <button type="submit" class="save-btn">Save HVAC Setup</button>
+        </form>
+      </section>
+
+      <!-- Live Valve Control & Airflow Panel -->
+      <section class="hvac-control-panel">
+        <div class="panel-header">
+          <h2>Live Valve & Airflow Recommendations</h2>
+          <span id="hvac-power-badge" class="badge">0 W HVAC Power</span>
+        </div>
+        <div id="hvac-valve-cards" class="valve-cards-container">
+          <div class="empty-msg">Awaiting HVAC control evaluation…</div>
+        </div>
+      </section>
+
+      <!-- Stage 12 & 15 Heat Load & Thermal ML Predictions Panel -->
+      <section class="thermal-predictions-panel">
+        <h2>Thermal Predictions & Heat Loads</h2>
+        <div id="thermal-predictions-cards" class="predictions-container">
+          <div class="empty-msg">Awaiting thermal response telemetry…</div>
+        </div>
+      </section>
+    </aside>
+  </div>
 </main>
-<script src="/frontend/app.js"></script></body></html>
+<script src="/frontend/app.js"></script>
+</body>
+</html>

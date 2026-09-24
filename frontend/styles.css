@@ -11,6 +11,7 @@
   --text-faint:#4f6462;
   --live:#34d399;
   --offline:#fb7185;
+  --warning:#f59e0b;
   font-family:Inter,system-ui,sans-serif;
   color:var(--text);
   background:var(--bg);
@@ -36,7 +37,7 @@ header strong{font-family:"Space Grotesk",Inter,sans-serif;font-weight:600;font-
 #status.live{color:var(--live)}
 #status.offline{color:var(--offline)}
 
-main{max-width:1280px;margin:auto;padding:32px 5vw 60px}
+main{max-width:1440px;margin:auto;padding:32px 3vw 60px}
 
 /* environment strip */
 .environment-panel{
@@ -51,10 +52,11 @@ main{max-width:1280px;margin:auto;padding:32px 5vw 60px}
 }
 #location-query::placeholder{color:var(--text-faint)}
 #location-query:focus{outline:none;border-color:var(--border-strong);box-shadow:0 0 0 3px var(--accent-dim)}
-#location-form button{
+#location-form button,.accent-btn,.save-btn{
   background:var(--accent);color:#04211d;border:none;border-radius:8px;padding:9px 16px;
-  font:600 13px Inter,sans-serif;cursor:pointer;white-space:nowrap;
+  font:600 13px Inter,sans-serif;cursor:pointer;white-space:nowrap;transition:opacity 0.2s;
 }
+#location-form button:hover,.accent-btn:hover,.save-btn:hover{opacity:0.9}
 .environment-actions{display:flex;gap:8px}
 .ghost-btn,#weather-refresh,#indoor-load{
   background:transparent;color:var(--text-dim);border:1px solid var(--border);border-radius:8px;
@@ -67,14 +69,16 @@ main{max-width:1280px;margin:auto;padding:32px 5vw 60px}
 }
 
 /* layout */
-.grid{display:grid;grid-template-columns:1.7fr 1fr;gap:20px;align-items:start}
+.grid{display:grid;grid-template-columns:1.2fr 1fr;gap:20px;align-items:start}
 
-.camera-panel,.fusion-panel,.zones-panel{
+.camera-panel,.fusion-panel,.zones-panel,.hvac-config-panel,.hvac-control-panel,.thermal-predictions-panel{
   border:1px solid var(--border);border-radius:14px;background:var(--panel);padding:20px;
 }
 .side{display:flex;flex-direction:column;gap:20px}
 
 #cameras{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+#cameras.layout-2{grid-template-columns:1fr 1fr;}
+#cameras.layout-quadrant{grid-template-columns:1fr 1fr;grid-template-rows:auto auto;}
 #cameras.empty{color:var(--text-faint);font-size:13px;display:block;padding:20px 0;text-align:center}
 
 .camera{
@@ -107,6 +111,9 @@ main{max-width:1280px;margin:auto;padding:32px 5vw 60px}
   background:#081211;border:1px solid var(--border);border-radius:6px;
   padding:3px 8px;font-size:11px;color:var(--text-dim);
 }
+.devices{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid rgba(45,212,191,0.1);font-size:11px;color:var(--text-dim);}
+.devices span{background:rgba(45,212,191,0.08);border:1px solid var(--border);border-radius:6px;padding:2px 6px;color:var(--accent);}
+
 
 #fusion-status{font-size:13px;color:var(--text-dim);border-left:2px solid var(--accent);padding-left:12px}
 
@@ -117,6 +124,53 @@ main{max-width:1280px;margin:auto;padding:32px 5vw 60px}
 }
 .zone b{display:block;font-family:"Space Grotesk",Inter,sans-serif;font-size:13px;color:var(--text);margin-bottom:4px;font-weight:600}
 .zone span{display:block;margin-top:3px}
+
+/* HVAC Config & Vent Selectors UI */
+.subheading{font-size:12px;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-dim);margin:16px 0 10px;}
+.field-group{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.field-group label{font-size:12px;color:var(--text-dim);}
+.field-group select,.field-group input{
+  background:#081211;color:var(--text);border:1px solid var(--border);border-radius:8px;
+  padding:8px 10px;font:13px Inter,sans-serif;width:100%;
+}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+
+.vent-selectors-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.vent-item{background:var(--panel-alt);border:1px solid var(--border);border-radius:8px;padding:8px 10px;}
+.vent-item label{display:block;font-size:11px;color:var(--text-dim);margin-bottom:4px;}
+.vent-dropdown{background:#081211;color:var(--accent);border:1px solid var(--border);border-radius:6px;padding:6px;font-size:12px;width:100%;font-weight:600;}
+
+/* Live Valve & Airflow Panel UI */
+.panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+.badge{background:var(--accent-dim);color:var(--accent);border:1px solid var(--border-strong);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+
+.valve-cards-container{display:flex;flex-direction:column;gap:14px;}
+.valve-card{background:var(--panel-alt);border:1px solid var(--border);border-radius:10px;padding:14px;}
+.valve-card-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.valve-card-head h4{font-family:"Space Grotesk",Inter,sans-serif;font-size:14px;margin:0;color:var(--text);}
+.valve-status-tag{font-size:11px;font-weight:600;padding:3px 8px;border-radius:6px;}
+.valve-status-tag.on{background:rgba(52,211,153,0.15);color:var(--live);border:1px solid rgba(52,211,153,0.3);}
+.valve-status-tag.standby{background:rgba(251,113,133,0.15);color:var(--offline);border:1px solid rgba(251,113,133,0.3);}
+
+.valve-bar-wrap{margin:10px 0;}
+.valve-bar-head{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);margin-bottom:4px;}
+.valve-bar-bg{height:8px;background:#081211;border-radius:4px;overflow:hidden;border:1px solid var(--border);}
+.valve-bar-fill{height:100%;background:linear-gradient(90deg, var(--accent) 0%, #34d399 100%);transition:width 0.3s ease;}
+
+.vent-valves-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.vent-chip{
+  background:#081211;border:1px solid var(--border-strong);border-radius:6px;padding:5px 10px;
+  font-size:11px;color:var(--text);display:flex;gap:6px;align-items:center;
+}
+.vent-chip strong{color:var(--accent);}
+
+/* Thermal Predictions UI */
+.predictions-container{display:flex;flex-direction:column;gap:10px;}
+.prediction-card{background:var(--panel-alt);border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:12px;color:var(--text-dim);}
+.prediction-card b{color:var(--text);display:block;margin-bottom:4px;}
+.prediction-pills{display:flex;gap:8px;margin-top:6px;}
+.pred-pill{background:#081211;border:1px solid var(--border);border-radius:6px;padding:4px 8px;font-size:11px;}
+.pred-pill span{color:var(--accent);font-weight:600;}
 
 @media (max-width:900px){
   .grid{grid-template-columns:1fr}

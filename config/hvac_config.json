@@ -1,0 +1,19 @@
+{
+  "system_type": "Variable Air Volume (VAV) with Zone Dampers/Valves",
+  "cooling_capacity_w": 12000.0,
+  "max_airflow_cfm_per_vent": 150.0,
+  "supply_air_temp_c": 20.0,
+  "min_valve_opening_pct": 10.0,
+  "max_valve_opening_pct": 100.0,
+  "target_setpoint_c": 24.0,
+  "comfort_range_min_c": 21.0,
+  "comfort_range_max_c": 24.0,
+  "default_fan_speed": "auto",
+  "default_ac_mode": "cool",
+  "zone_vent_counts": {
+    "zone-1": 1,
+    "zone-2": 2,
+    "zone-3": 2,
+    "zone-4": 1
+  }
+}

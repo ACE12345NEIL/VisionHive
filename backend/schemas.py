@@ -74,3 +74,12 @@ class CameraFrameResult(BaseModel):
     frame_size: tuple[int,int]
     detections: list[Detection]=Field(default_factory=list)
     tracks: list[Track]=Field(default_factory=list)
+
+class HVACConfigUpdate(BaseModel):
+    system_type: str | None = None
+    target_setpoint_c: float | None = None
+    cooling_capacity_w: float | None = None
+    max_airflow_cfm_per_vent: float | None = None
+    supply_air_temp_c: float | None = None
+    zone_vent_counts: dict[str, int] | None = None
+
