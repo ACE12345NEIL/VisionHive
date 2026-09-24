@@ -19,27 +19,27 @@
   "zone_lighting_config": {
     "zone-1": {
       "light_count": 4,
-      "wattage_per_light": 18.0,
+      "wattage_per_light": 18,
       "is_on": true
     },
     "zone-2": {
       "light_count": 4,
-      "wattage_per_light": 18.0,
+      "wattage_per_light": 18,
       "is_on": true
     },
     "zone-3": {
       "light_count": 2,
-      "wattage_per_light": 18.0,
+      "wattage_per_light": 18,
       "is_on": true
     },
     "zone-4": {
       "light_count": 4,
-      "wattage_per_light": 18.0,
+      "wattage_per_light": 18,
       "is_on": true
     }
   },
   "zone_window_states": {
-    "zone-1": "open",
-    "zone-4": "closed"
+    "zone-1": "closed",
+    "zone-4": "open"
   }
 }
