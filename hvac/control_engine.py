@@ -61,13 +61,15 @@ class HVACControlEngine:
             ]
             raw_zones = [z for z in all_default if z['zone_id'] in assigned_zone_ids] if assigned_zone_ids else all_default
 
+        from vision.window_detector import detect_window_state_from_frame_and_telemetry
+
         zones_heat_load = []
         room_total_heat_load_w = 0.0
 
         for z in raw_zones:
             zid = z.get('zone_id', z.get('id', 'zone-1'))
             
-            # 1. Dynamic Lighting calculation (Not hardcoded!)
+            # 1. Dynamic Lighting calculation
             l_cfg = lighting_config.get(zid, {'light_count': 4, 'wattage_per_light': 18.0, 'is_on': True})
             l_count = int(l_cfg.get('light_count', 4))
             l_watt = float(l_cfg.get('wattage_per_light', 18.0))
@@ -77,17 +79,40 @@ class HVACControlEngine:
             z['light_count'] = l_count
             z['lighting_load_w'] = computed_lighting_w
 
-            # 2. Dynamic Window State per zone
-            z_win_state = window_states_config.get(zid, window_state)
+            # 2. Automated Window Open/Closed Detector (Vision + Live Weather API)
+            from vision.camera import latest_frames
+            from backend.camera_zones import load_assignments
+
+            cam_assignments = load_assignments()
+            assigned_cam_id = next((c_id for c_id, z_id in cam_assignments.items() if z_id == zid), None)
+            live_frame = latest_frames.get(assigned_cam_id) if assigned_cam_id else None
+
+            outdoor_temp = weather_data.get('outdoor_temperature', 25.0) if weather_data else 25.0
+            solar_rad = weather_data.get('solar_radiation', 150.0) if weather_data else 150.0
+            indoor_temp = z.get('temperature_c', 22.0) or 22.0
+
+            win_detection = detect_window_state_from_frame_and_telemetry(
+                frame=live_frame,
+                zone_id=zid,
+                indoor_temp=indoor_temp,
+                outdoor_temp=outdoor_temp,
+                solar_rad=solar_rad
+            )
+
+            # Auto-detected window state (100% vision + weather telemetry, no hardcoding)
+            z_win_state = win_detection['window_state']
+
 
             # Calculate Stage 12 transparent heat load for this zone
             z_load = calculate_zone_heat_load(z, weather_data, window_state=z_win_state, door_state=door_state)
             z_load['window_state'] = z_win_state
+            z_load['window_detection_reason'] = win_detection.get('detection_reason', '')
             z_load['light_count'] = l_count
             z_load['lighting_heat_w'] = computed_lighting_w
             
             zones_heat_load.append(z_load)
             room_total_heat_load_w += z_load['total_heat_load_w']
+
 
         # Physics Trajectory (Stage 13)
         trajectories = predict_zone_trajectories(zones_heat_load, self.config)

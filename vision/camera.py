@@ -7,47 +7,77 @@ from backend.schemas import CameraFrameResult
 from .preprocessing import preprocess, resize
 
 latest_jpegs = {}
+latest_frames = {}
+
+
+# Vibrant Color Palette for Bounding Boxes (BGR format)
+COLOR_PERSON = (50, 240, 140)     # Mint / Neon Green
+COLOR_LAPTOP = (0, 225, 255)     # Bright Yellow
+COLOR_MONITOR = (255, 215, 0)    # Cyan / Sky Blue
+COLOR_PHONE = (0, 165, 255)      # Light Orange
+COLOR_LIGHT = (0, 245, 255)      # Gold / Warm Amber
+COLOR_OTHER = (255, 100, 220)    # Magenta
+
+
+def draw_labeled_box(img, x1, y1, x2, y2, label, color, thickness=2):
+    """Draws crisp bounding box rectangle with solid filled label pill for maximum visibility."""
+    x1, y1, x2, y2 = int(x1), int(y1), int(x2), int(y2)
+    
+    # 1. Main Bounding Box Rectangle
+    cv2.rectangle(img, (x1, y1), (x2, y2), color, thickness)
+    
+    # 2. Filled Background Pill for Label Text
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.45
+    font_thickness = 1
+    (text_w, text_h), baseline = cv2.getTextSize(label, font, font_scale, font_thickness)
+    
+    label_y1 = max(0, y1 - text_h - 8)
+    label_y2 = max(text_h + 8, y1)
+    
+    # Fill solid background box matching color for high contrast
+    cv2.rectangle(img, (x1, label_y1), (x1 + text_w + 8, label_y2), color, -1)
+    # Contrast black text inside label pill
+    cv2.putText(img, label, (x1 + 4, label_y2 - 4), font, font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)
 
 
 def cache_preview(camera_id, frame, detections, tracks):
+    """Generates preview JPEG with high-visibility labeled bounding boxes for both people and equipment."""
     preview = frame.copy()
     
-    # 1. Draw equipment & lights detections (Amber/Yellow bounding boxes)
+    # 1. Draw equipment, displays, and lights detections
     for det in detections:
         if det.class_name == 'person':
             continue
         box = det.bbox
-        # Gold/Yellow for lights, Amber for devices
-        color = (0, 230, 255) if 'light' in det.class_name.lower() else (0, 190, 255)
-        cv2.rectangle(preview, (int(box.x1), int(box.y1)), (int(box.x2), int(box.y2)), color, 2)
-        cv2.putText(
-            preview,
-            f'{det.class_name} {int(det.confidence * 100)}%',
-            (int(box.x1), max(18, int(box.y1) - 6)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.45,
-            color,
-            2
-        )
+        c_name = det.class_name.lower()
+        
+        if 'laptop' in c_name:
+            color = COLOR_LAPTOP
+        elif 'monitor' in c_name or 'tv' in c_name or 'screen' in c_name:
+            color = COLOR_MONITOR
+        elif 'phone' in c_name:
+            color = COLOR_PHONE
+        elif 'light' in c_name:
+            color = COLOR_LIGHT
+        else:
+            color = COLOR_OTHER
 
-    # 2. Draw person tracks (Cyan/Mint bounding boxes)
+        label_text = f'{det.class_name} {int(det.confidence * 100)}%'
+        draw_labeled_box(preview, box.x1, box.y1, box.x2, box.y2, label_text, color, thickness=2)
+
+    # 2. Draw tracked occupants/people
     for track in tracks:
         box = track.bbox
-        color = (70, 230, 180)
-        cv2.rectangle(preview, (int(box.x1), int(box.y1)), (int(box.x2), int(box.y2)), color, 2)
-        cv2.putText(
-            preview,
-            f'#{track.id.split(":")[-1]} {track.activity.name.lower()}',
-            (int(box.x1), max(18, int(box.y1) - 6)),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            0.5,
-            color,
-            2
-        )
+        track_num = track.id.split(":")[-1]
+        label_text = f'#{track_num} {track.activity.name.lower()}'
+        draw_labeled_box(preview, box.x1, box.y1, box.x2, box.y2, label_text, COLOR_PERSON, thickness=2)
 
-    ok, encoded = cv2.imencode('.jpg', preview, [cv2.IMWRITE_JPEG_QUALITY, 75])
+    latest_frames[camera_id] = frame
+    ok, encoded = cv2.imencode('.jpg', preview, [cv2.IMWRITE_JPEG_QUALITY, 80])
     if ok:
         latest_jpegs[camera_id] = encoded.tobytes()
+
 
 
 class CameraWorker:
@@ -75,7 +105,7 @@ class CameraWorker:
         while self.running:
             ok, frame = cap.read()
             if not ok:
-                # Loop video files if reached EOF
+                # Loop video files cleanly when reaching EOF
                 if self.camera.source_type == 'video':
                     cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
                     ok, frame = cap.read()
@@ -95,7 +125,7 @@ class CameraWorker:
                 detections = await asyncio.to_thread(self.detector.detect, detector_frame, self.camera.id)
             tracks = self.motion.analyze(detector_frame, self.tracker.update(detections))
             
-            # Cache preview with BOTH device detections and person tracks
+            # Cache preview with high-visibility labeled bounding boxes
             cache_preview(self.camera.id, detector_frame, detections, tracks)
             
             await self.on_result(CameraFrameResult(

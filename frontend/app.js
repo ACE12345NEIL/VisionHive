@@ -8,7 +8,6 @@ const hvacValveCards = document.querySelector('#hvac-valve-cards');
 const thermalPredictionsCards = document.querySelector('#thermal-predictions-cards');
 const trainMlBtn = document.querySelector('#train-ml-btn');
 const ventSelectorsGrid = document.querySelector('#vent-selectors-grid');
-const windowSelectorsGrid = document.querySelector('#window-selectors-grid');
 const lightingSelectorsGrid = document.querySelector('#lighting-selectors-grid');
 
 const labels = ['Stationary', 'Low', 'Medium', 'High'];
@@ -139,12 +138,11 @@ function renderZones(items) {
   }).join('');
 }
 
-// Dynamically render Vent, Window, and Lighting selectors ONLY for camera-assigned active zones
+// Dynamically render Vent and Lighting selectors ONLY for camera-assigned active zones
 function renderDynamicConfigSelectors() {
   const activeZoneIds = new Set(Object.values(assignments).filter(Boolean));
   const displayZoneIds = activeZoneIds.size > 0 ? Array.from(activeZoneIds) : ['zone-1', 'zone-2', 'zone-3', 'zone-4'];
   const vCounts = hvacConfig.zone_vent_counts || {};
-  const winStates = hvacConfig.zone_window_states || {};
   const lightCfg = hvacConfig.zone_lighting_config || {};
 
   // 1. Vent Selectors
@@ -164,21 +162,7 @@ function renderDynamicConfigSelectors() {
     `;
   }).join('');
 
-  // 2. Window Open/Closed State Selectors
-  windowSelectorsGrid.innerHTML = displayZoneIds.map(zid => {
-    const st = winStates[zid] || 'closed';
-    return `
-      <div class="vent-item">
-        <label>${ZONE_NAMES[zid] || zid}</label>
-        <select id="window-${zid}" class="window-dropdown" data-zone="${zid}">
-          <option value="closed" ${st === 'closed' ? 'selected' : ''}>Closed 🔒</option>
-          <option value="open" ${st === 'open' ? 'selected' : ''}>Open 🪟 (+Heat Infiltration)</option>
-        </select>
-      </div>
-    `;
-  }).join('');
-
-  // 3. Non-Hardcoded Lighting Configuration per Zone
+  // 2. Non-Hardcoded Lighting Configuration per Zone
   lightingSelectorsGrid.innerHTML = displayZoneIds.map(zid => {
     const l = lightCfg[zid] || { light_count: 4, wattage_per_light: 18.0, is_on: true };
     return `
@@ -226,12 +210,6 @@ document.querySelector('#hvac-config-form').onsubmit = async (e) => {
     if (zid) zoneVentCounts[zid] = parseInt(sel.value, 10);
   });
 
-  const zoneWindowStates = { ...(hvacConfig.zone_window_states || {}) };
-  document.querySelectorAll('.window-dropdown').forEach(sel => {
-    const zid = sel.dataset.zone;
-    if (zid) zoneWindowStates[zid] = sel.value;
-  });
-
   const zoneLightingConfig = { ...(hvacConfig.zone_lighting_config || {}) };
   document.querySelectorAll('.light-count-input').forEach(inp => {
     const zid = inp.dataset.zone;
@@ -254,7 +232,6 @@ document.querySelector('#hvac-config-form').onsubmit = async (e) => {
     target_setpoint_c: parseFloat(document.querySelector('#hvac-setpoint').value),
     supply_air_temp_c: parseFloat(document.querySelector('#hvac-supply-temp').value),
     zone_vent_counts: zoneVentCounts,
-    zone_window_states: zoneWindowStates,
     zone_lighting_config: zoneLightingConfig
   };
 
@@ -266,7 +243,7 @@ document.querySelector('#hvac-config-form').onsubmit = async (e) => {
 
   if (response.ok) {
     hvacConfig = await response.json();
-    alert('HVAC specifications, lighting configurations, and window states saved!');
+    alert('HVAC specifications and lighting configurations saved!');
     fetchHvacControl();
   }
 };
@@ -293,8 +270,8 @@ function renderHvacControl(data) {
     `).join('');
 
     const windowBadge = z.window_state === 'open' 
-      ? `<span class="window-warn-badge">🪟 Window OPEN (+Heat Infiltration)</span>`
-      : `<span style="font-size:11px;color:var(--text-dim);">🪟 Window: Closed</span>`;
+      ? `<span class="window-warn-badge">🪟 Auto-Detected Window: OPEN (+Heat Infiltration)</span>`
+      : `<span style="font-size:11px;color:var(--text-dim);">🔒 Window: Closed</span>`;
 
     return `
       <div class="valve-card">
@@ -331,7 +308,7 @@ function renderHvacControl(data) {
   thermalPredictionsCards.innerHTML = data.zone_controls.map(z => `
     <div class="prediction-card">
       <b>${z.zone_name} Predictions</b>
-      <div>Current Temp: ${z.current_temp_c}°C ${z.window_state === 'open' ? '<span style="color:var(--warning);font-weight:600;">(Window Open)</span>' : ''}</div>
+      <div>Current Temp: ${z.current_temp_c}°C ${z.window_state === 'open' ? '<span style="color:var(--warning);font-weight:600;">(Window Open Infiltration)</span>' : ''}</div>
       <div class="prediction-pills">
         <div class="pred-pill">+15m: <span>${z.ml_predicted_temp_15m}°C</span></div>
         <div class="pred-pill">+30m: <span>${z.ml_predicted_temp_30m}°C</span></div>
