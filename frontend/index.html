@@ -50,6 +50,70 @@
         <h2>Thermal Zones & Occupancy</h2>
         <div id="zones" class="zones"></div>
       </section>
+
+      <!-- Stage 21: Digital Twin Spatial Model -->
+      <section class="digital-twin-panel" style="margin-top:20px;">
+        <div class="twin-header">
+          <div>
+            <h2>🌐 Spatial Digital Twin (2D / 3D)</h2>
+            <p class="twin-subtitle">Live room model: Occupants, thermal gradients & airflow vectors</p>
+          </div>
+          <div class="twin-controls">
+            <div class="twin-btn-group">
+              <button type="button" id="twin-view-2d" class="twin-btn active">2D Plan</button>
+              <button type="button" id="twin-view-3d" class="twin-btn">3D Isometric</button>
+            </div>
+            <div class="twin-btn-group">
+              <button type="button" id="twin-toggle-occupants" class="twin-toggle-btn active" title="Toggle Occupant Markers">👥 Occupants</button>
+              <button type="button" id="twin-toggle-heatmap" class="twin-toggle-btn active" title="Toggle Thermal Heat Map">🔥 Heatmap</button>
+              <button type="button" id="twin-toggle-vectors" class="twin-toggle-btn active" title="Toggle Airflow Vectors">💨 Airflow</button>
+              <button type="button" id="twin-toggle-elements" class="twin-toggle-btn active" title="Toggle Vents & Architecture">🚪 Vents & Walls</button>
+              <button type="button" id="twin-reset-layout" class="twin-toggle-btn" title="Reset Room Layout to Default Positions" style="border-color:rgba(245,158,11,0.5);color:#f59e0b;">🔄 Reset Layout</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="twin-canvas-wrapper">
+          <canvas id="digital-twin-canvas" width="800" height="500"></canvas>
+          <div id="twin-tooltip" class="twin-tooltip" style="display:none;"></div>
+          <div class="twin-legend">
+            <span class="legend-label">Thermal Gradient (°C):</span>
+            <div class="legend-bar"></div>
+            <div class="legend-ticks">
+              <span>18°</span><span>20°</span><span>22°</span><span>24°</span><span>26°+</span>
+            </div>
+          </div>
+          <div class="twin-stats-badge" id="twin-stats-badge">
+            <span id="twin-badge-ac">AC: ON</span>
+            <span id="twin-badge-cfm">600 CFM</span>
+            <span id="twin-badge-occupants">0 Occupants</span>
+            <span style="color:#2dd4bf;font-weight:600;">🖐️ Drag items to customize</span>
+          </div>
+        </div>
+
+        <div id="twin-inspector" class="twin-inspector">
+          <div class="inspector-item">
+            <span class="inspector-label">Focused Element:</span>
+            <span id="twin-focus-name" class="inspector-val">Room Overview</span>
+          </div>
+          <div class="inspector-item">
+            <span class="inspector-label">Zone Temperature:</span>
+            <span id="twin-focus-temp" class="inspector-val">-- °C</span>
+          </div>
+          <div class="inspector-item">
+            <span class="inspector-label">Valve Opening:</span>
+            <span id="twin-focus-valve" class="inspector-val">-- %</span>
+          </div>
+          <div class="inspector-item">
+            <span class="inspector-label">Heat Load:</span>
+            <span id="twin-focus-heat" class="inspector-val">-- W</span>
+          </div>
+          <div class="inspector-item">
+            <span class="inspector-label">Airflow:</span>
+            <span id="twin-focus-flow" class="inspector-val">-- CFM</span>
+          </div>
+        </div>
+      </section>
     </div>
 
     <!-- Right Column: HVAC System Specs, Vent Configuration & Valve Control -->
@@ -231,7 +295,9 @@
 </main>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
-<script src="/frontend/app.js"></script>
+<script src="/frontend/app.js"></script>
+
 <script src="/frontend/simulation.js"></script>
+<script src="/frontend/digital_twin.js"></script>
 </body>
 </html>

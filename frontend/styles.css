@@ -196,3 +196,163 @@ main{max-width:1440px;margin:auto;padding:32px 3vw 60px}
 .sim-zone-stat{color:var(--text-faint);line-height:1.8;}
 .sim-zone-stat strong{color:var(--text);}
 #sim-chart-container{background:#0b1926;border-radius:8px;padding:12px;}
+
+
+/* ─── Stage 21: Digital Twin Panel ─────────────────────────────────────────── */
+.digital-twin-panel {
+  background: var(--panel);
+  border: 1px solid var(--border-strong);
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+.twin-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.twin-subtitle {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin: 3px 0 0;
+}
+.twin-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.twin-btn-group {
+  display: flex;
+  background: #060c0d;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.twin-btn, .twin-toggle-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-dim);
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.twin-toggle-btn {
+  background: #081211;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-faint);
+}
+.twin-btn.active, .twin-toggle-btn.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-weight: 600;
+  border-color: var(--accent);
+}
+.twin-canvas-wrapper {
+  position: relative;
+  background: #050a0b;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.6);
+}
+#digital-twin-canvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 800 / 500;
+  display: block;
+  cursor: crosshair;
+}
+.twin-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(8, 16, 17, 0.92);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--text);
+  line-height: 1.5;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6), 0 0 10px rgba(45, 212, 191, 0.2);
+  z-index: 10;
+  backdrop-filter: blur(4px);
+  min-width: 140px;
+}
+.twin-legend {
+  position: absolute;
+  bottom: 12px;
+  left: 14px;
+  background: rgba(8, 16, 17, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 10px;
+  color: var(--text-dim);
+  backdrop-filter: blur(4px);
+}
+.legend-label {
+  display: block;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+.legend-bar {
+  height: 8px;
+  width: 140px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #2563eb, #06b6d4, #10b981, #eab308, #ef4444);
+  margin-bottom: 2px;
+}
+.legend-ticks {
+  display: flex;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--text-faint);
+}
+.twin-stats-badge {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  display: flex;
+  gap: 6px;
+}
+.twin-stats-badge span {
+  background: rgba(8, 16, 17, 0.85);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent);
+  backdrop-filter: blur(4px);
+}
+.twin-inspector {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background: #081211;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.inspector-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.inspector-label {
+  font-size: 10px;
+  color: var(--text-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.inspector-val {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}

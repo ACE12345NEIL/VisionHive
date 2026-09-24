@@ -73,7 +73,9 @@
       </div>
     `).join('');
 
-    // Timeline chart
+    const activeZones = new Set(data.config_used.active_zones || Object.keys(ZONE_LABELS));
+
+    // Timeline chart — only active zones
     const timeline = data.timeline;
     const labels = timeline.map(t => {
       const h = Math.floor(t.hour);
@@ -81,10 +83,10 @@
       return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
     });
 
-    const datasets = Object.keys(ZONE_LABELS).map(zid => ({
-      label: ZONE_LABELS[zid],
+    const datasets = Array.from(activeZones).map(zid => ({
+      label: ZONE_LABELS[zid] || zid,
       data: timeline.map(t => t.zones[zid]?.temp_c ?? null),
-      borderColor: ZONE_COLORS[zid],
+      borderColor: ZONE_COLORS[zid] || '#64748b',
       backgroundColor: 'transparent',
       borderWidth: 2,
       pointRadius: 0,

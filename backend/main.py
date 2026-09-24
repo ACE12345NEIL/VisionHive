@@ -28,6 +28,7 @@ from hvac.control_engine import HVACControlEngine
 from ml.thermal_model import train_thermal_models
 from ml.energy_model import train_energy_model
 from simulation.engine import run_simulation
+from digital_twin.engine import digital_twin_engine
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 log = logging.getLogger('visionhive')
@@ -51,11 +52,13 @@ async def publish(result):
         weather_info = {"outdoor_temperature": 25.0, "solar_radiation": 150.0}
 
     hvac_state = hvac_engine.evaluate_control(zones, weather_info)
+    twin_state = digital_twin_engine.get_twin_state(zones, hvac_state, fused, weather_info)
 
     await manager.broadcast({'type': 'camera_frame_result', 'data': payload})
     await manager.broadcast({'type': 'fusion_state', 'data': fused})
     await manager.broadcast({'type': 'zone_state', 'data': zones})
     await manager.broadcast({'type': 'hvac_control_state', 'data': hvac_state})
+    await manager.broadcast({'type': 'digital_twin_state', 'data': twin_state})
 
 
 @asynccontextmanager
@@ -92,7 +95,13 @@ def vision_performance():
 
 @app.post('/api/simulation/run')
 async def run_simulation_api(payload: dict):
-    """Stage 20: Fast-forward simulation. POST JSON body to configure scenario."""
+    """Stage 20: Fast-forward simulation. POST JSON body to configure scenario.
+    Only simulates zones assigned to active cameras (same as Digital Twin & CCTV views).
+    """
+    from backend.camera_zones import load_assignments
+    assignments = load_assignments()
+    active_zone_ids = sorted({z for z in assignments.values() if z}) or None
+
     result = await asyncio.to_thread(
         run_simulation,
         hours=int(payload.get('hours', 24)),
@@ -108,8 +117,45 @@ async def run_simulation_api(payload: dict):
         ac_enabled=bool(payload.get('ac_enabled', True)),
         window_open_zones=payload.get('window_open_zones', []),
         activity_level=str(payload.get('activity_level', 'low')),
+        active_zone_ids=active_zone_ids,
     )
     return result
+ 
+@app.get('/api/digital-twin/state')
+def get_digital_twin_state():
+    """Stage 21: Returns real-time 2D/3D spatial Digital Twin model."""
+    try:
+        weather_info = current_weather()
+    except Exception:
+        weather_info = {"outdoor_temperature": 25.0, "solar_radiation": 150.0}
+    hvac_state = hvac_engine.evaluate_control(zone_manager.state, weather_info)
+    return digital_twin_engine.get_twin_state(
+        zone_manager.state,
+        hvac_state,
+        fusion_engine.last_state,
+        weather_info
+    )
+
+_LAYOUT_PATH = ROOT / 'config' / 'room_layout.json'
+
+@app.get('/api/digital-twin/layout')
+def get_layout():
+    """Return current room element layout (positions in metres)."""
+    try:
+        return json.loads(_LAYOUT_PATH.read_text())
+    except Exception:
+        return {}
+
+@app.post('/api/digital-twin/layout')
+async def save_layout(payload: dict):
+    """Save drag-and-drop room layout overrides to config/room_layout.json."""
+    try:
+        existing = json.loads(_LAYOUT_PATH.read_text()) if _LAYOUT_PATH.exists() else {}
+        existing.update(payload)
+        _LAYOUT_PATH.write_text(json.dumps(existing, indent=2))
+        return {'saved': True}
+    except Exception as exc:
+        return {'saved': False, 'error': str(exc)}
 
 @app.get('/api/room')
 def room():

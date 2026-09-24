@@ -24,7 +24,7 @@ Open **`http://127.0.0.1:8000`** in your browser to access the live dashboard.
 
 ---
 
-## Stages Implemented (Stages 1 – 19) ✅
+## Stages Implemented (Stages 1 – 21) ✅
 
 | Stage | Title | Description |
 |-------|-------|-------------|
@@ -47,17 +47,17 @@ Open **`http://127.0.0.1:8000`** in your browser to access the live dashboard.
 | 17 | **HVAC Control Engine & Vent Valve Optimizer** | Intelligent decision engine computing dynamic setpoints, AC ON/OFF status, fan speed, airflow CFM, **Overall Zone Valve Opening Percentage (0–100%)**, and **Individual Vent Valve Opening %** for every vent installed in each zone. |
 | 18 | **Real-Time Integration & Automated Vision Sensing** | 100% automated computer vision sunlight glare & window infiltration detection (no manual selection). High-visibility bounding box preview renderer with filled label background pills. WebSocket live telemetry broadcasting to web dashboard UI. |
 | 19 | **Performance Optimization** | Vision pipeline latency profiling (`VisionPerformanceProfiler`), per-frame processing & YOLO inference timer instrumentation, occupancy heatmap generation via homography-mapped pixel coordinates, FPS tracking, and live performance metrics endpoint (`/api/vision/performance`). |
-| 20 | **Fast-Forward Simulation Engine** | Accelerated time-step simulation engine (`simulation/engine.py`) running up to 24 hours of room thermal dynamics in seconds. Physics ODE integrator with 1-minute timesteps, proportional HVAC valve control, inter-zone thermal coupling, diurnal solar/weather models, occupancy schedules, and energy accumulation. REST endpoint `POST /api/simulation/run`. Interactive frontend panel with Chart.js temperature timeline and per-zone summary cards (avg/peak/min temp, energy kWh, comfort %). |
+| 20 | **Fast-Forward Simulation Engine** | Accelerated time-step simulation engine (`simulation/engine.py`) running up to 24 hours of room thermal dynamics in seconds. Physics ODE integrator with 1-minute timesteps, proportional HVAC valve control, inter-zone thermal coupling, diurnal solar/weather models, occupancy schedules, and energy accumulation. Filtered strictly to active camera-assigned zones (`camera_zones.json`). REST endpoint `POST /api/simulation/run`. Interactive frontend panel with Chart.js temperature timeline and per-zone summary cards (avg/peak/min temp, energy kWh, comfort %). |
+| 21 | **Spatial Digital Twin (2D / 3D) & Drag-and-Drop Layout Customizer** | Interactive 2D architectural floor plan & 3D isometric spatial model (`digital_twin/engine.py`, `frontend/digital_twin.js`). Dynamically filtered to active camera-assigned zones matching CCTV feeds (unmonitored zones hatched/inactive); real-time occupant markers with 3D positions, activity badges and metabolic heat plumes; continuous spatial thermal heatmap gradient interpolation; dynamic fluid airflow vector fields with velocity arrows and animated stream particles; ceiling supply diffuser vents and central return air grille; interactive element hover inspector HUD, **full 2D Canvas drag-and-drop customization for room elements (vents, workstations/desks, doors, windows) with REST persistence (`config/room_layout.json`) and 🔄 Reset Layout capability**; live WebSocket/REST synchronization (`/api/digital-twin/state`). |
 
 ---
 
-## Pending Stages (Stages 21 – 25)
+## Pending Stages (Stages 22 – 25)
 
 > **Note:** README is updated at the completion of every stage.
 
 | Stage | Title | Description |
 |-------|-------|-------------|
-| 21 | **Digital Twin** | Interactive 2D/3D visual spatial model representing real-time occupant markers, heat maps, and airflow vectors. |
 | 22 | **What-If Scenario Analysis** | Interactive scenario tester (e.g., *"What if 10 extra people enter Zone 1 during a 35°C heatwave?"*). |
 | 23 | **Digital Twin Scenario Comparison** | Side-by-side comparison matrix of different energy-saving vs. comfort-maximizing HVAC policies. |
 | 24 | **Final Frontend** | Full UI design polish, executive reporting dashboard, and theme refinements. |
@@ -112,7 +112,7 @@ Open **`http://127.0.0.1:8000`** in your browser to access the live dashboard.
 | Inter-Zone Wall Thermal Coupling: Heat transfer exchange between adjacent room quadrants | ✅ Implemented |
 | 2D Live Grid Room Dashboard: Real-time quadrant occupancy, device load, and valve opening status | ✅ Implemented |
 | Fast-Forward Accelerated Time-Step Simulation Engine: 1-min ODE steps, diurnal weather, occupancy schedules, HVAC auto-control, energy accumulation, Chart.js timeline (Stage 20) | ✅ Implemented |
-| Interactive 3D/2D Spatial Digital Twin with Airflow Vector Fields (Stage 21) | 🔮 Future Scope |
+| Interactive 3D/2D Spatial Digital Twin: Real-time occupant markers, continuous thermal heatmaps & airflow vector fields (Stage 21) | ✅ Implemented |
 | Interactive "What-If" Scenario Analysis Engine (Stage 22) | 🔮 Future Scope |
 | Digital Twin Policy Comparison Matrix (Stage 23) | 🔮 Future Scope |
 
@@ -128,8 +128,10 @@ VisionHive/
 ├── environment/      # Indoor telemetry & outdoor weather integration
 ├── hvac/             # HVAC config, dataset loader, control engine
 ├── ml/               # Thermal & energy prediction model pipelines
+├── simulation/       # Fast-forward accelerated ODE thermal simulation engine (Stage 20)
+├── digital_twin/     # 2D/3D spatial room model, airflow vectors & thermal gradients (Stage 21)
 ├── config/           # device_power.json, hvac_config.json, cameras.json, etc.
-├── frontend/         # Web dashboard UI (HTML/CSS/JS)
+├── frontend/         # Web dashboard UI (HTML/CSS/JS, 2D/3D Digital Twin Canvas)
 ├── data/             # HVAC datasets and generated project datasets
 └── README.md
 ```

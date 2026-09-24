@@ -431,4 +431,7 @@ ws.onmessage = e => {
   if (message.type === 'hvac_control_state') {
     renderHvacControl(message.data);
   }
+  if (message.type === 'digital_twin_state' && window.updateDigitalTwinState) {
+    window.updateDigitalTwinState(message.data);
+  }
 };

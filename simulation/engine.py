@@ -42,12 +42,13 @@ ZONE_IDS = ['zone-1', 'zone-2', 'zone-3', 'zone-4']
 
 
 # ── Occupancy Schedule Helper ─────────────────────────────────────────────────
-def _occupancy_at(hour: float, schedule: Dict[str, Any]) -> Dict[str, int]:
+def _occupancy_at(hour: float, schedule: Dict[str, Any], target_zones: Optional[List[str]] = None) -> Dict[str, int]:
     """Returns people count per zone for a given simulation hour."""
     # schedule maps zone_id -> list of 24 ints (one per hour)
     result = {}
     h = int(hour) % 24
-    for zid in ZONE_IDS:
+    zones = target_zones or ZONE_IDS
+    for zid in zones:
         hourly = schedule.get(zid, [0] * 24)
         result[zid] = hourly[h] if h < len(hourly) else 0
     return result
@@ -134,10 +135,11 @@ def run_simulation(
     ac_enabled: bool = True,
     window_open_zones: Optional[List[str]] = None,
     activity_level: str = 'low',
+    active_zone_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     """
     Runs the fast-forward simulation.
-
+    active_zone_ids: if provided, only these zones are simulated (matches active camera feeds).
     Returns a dict with:
       - timeline: list of per-step dicts (minute index, hour, zone temps, valve%, energy)
       - summary: aggregated stats per zone
@@ -149,25 +151,28 @@ def run_simulation(
     vent_counts = hvac_cfg.get('zone_vent_counts', {z: 2 for z in ZONE_IDS})
     rated_kw = float(hvac_cfg.get('rated_cooling_capacity_kw', 10.0))
 
-    # Default initial state
-    zone_temps: Dict[str, float] = {z: initial_temps.get(z, 22.0) if initial_temps else 22.0 for z in ZONE_IDS}
-    dev_w = device_loads_w or {z: 200.0 for z in ZONE_IDS}
-    light_w = lighting_loads_w or {z: 100.0 for z in ZONE_IDS}
+    # Determine which zones to actually simulate
+    sim_zones = active_zone_ids if active_zone_ids else ZONE_IDS
+
+    # Default initial state — only for sim_zones
+    zone_temps: Dict[str, float] = {z: initial_temps.get(z, 22.0) if initial_temps else 22.0 for z in sim_zones}
+    dev_w = device_loads_w or {z: 200.0 for z in sim_zones}
+    light_w = lighting_loads_w or {z: 100.0 for z in sim_zones}
     window_open_set = set(window_open_zones or [])
 
-    # Default 9-to-5 occupancy if not provided
+    # Default 9-to-5 occupancy if not provided — only for sim_zones
     if occupancy_schedule is None:
-        base = [0]*8 + [3]*9 + [0]*7  # 0-7 empty, 8-16 occupied, 17-23 empty
-        occupancy_schedule = {z: base for z in ZONE_IDS}
+        base = [0]*8 + [3]*9 + [0]*7
+        occupancy_schedule = {z: base for z in sim_zones}
 
     steps = int(hours * STEPS_PER_HOUR * (60.0 / dt_seconds))
     hours_per_step = dt_seconds / 3600.0
 
-    # Accumulators for summary
+    # Accumulators for summary — only for sim_zones
     zone_accum: Dict[str, Dict[str, float]] = {
         z: {'sum_temp': 0.0, 'max_temp': -999.0, 'min_temp': 999.0,
             'total_kwh': 0.0, 'comfort_steps': 0}
-        for z in ZONE_IDS
+        for z in sim_zones
     }
 
     timeline: List[Dict[str, Any]] = []
@@ -176,10 +181,9 @@ def run_simulation(
         sim_hour = step * hours_per_step
         cal_hour = sim_hour % 24.0
 
-        # Environment at this timestep
         outdoor_t = _outdoor_temp_at(cal_hour, outdoor_temp_min, outdoor_temp_max)
         solar_r = _solar_radiation_at(cal_hour, peak_solar_w_m2)
-        occupancy = _occupancy_at(cal_hour, occupancy_schedule)
+        occupancy = _occupancy_at(cal_hour, occupancy_schedule, target_zones=sim_zones)
 
         step_data: Dict[str, Any] = {
             'minute': step,
@@ -193,7 +197,7 @@ def run_simulation(
         valve_pcts: Dict[str, float] = {}
         cooling_ws: Dict[str, float] = {}
 
-        for zid in ZONE_IDS:
+        for zid in sim_zones:
             ppl = occupancy.get(zid, 0)
             q = _compute_heat_load_w(
                 zid, ppl, activity_level,
@@ -209,26 +213,25 @@ def run_simulation(
             cooling_ws[zid] = cooling
             valve_pcts[zid] = valve
 
-        # Inter-zone coupling
+        # Inter-zone coupling (only between sim_zones)
+        adj_graph = {z: [a for a in ZONE_ADJACENCY.get(z, []) if a in sim_zones] for z in sim_zones}
         q_coupling: Dict[str, float] = {}
-        for zid in ZONE_IDS:
+        for zid in sim_zones:
             qc = 0.0
-            for adj in ZONE_ADJACENCY.get(zid, []):
+            for adj in adj_graph[zid]:
                 qc += (zone_temps[adj] - zone_temps[zid]) / R_COUPLING_K_PER_W
             q_coupling[zid] = qc
 
         # Integrate temperatures
         new_temps: Dict[str, float] = {}
-        for zid in ZONE_IDS:
+        for zid in sim_zones:
             q_net = heat_loads_w[zid] - cooling_ws[zid] + q_coupling[zid]
             dT = (q_net * dt_seconds) / C_ZONE_J_PER_K
             new_t = round(zone_temps[zid] + dT, 3)
             new_temps[zid] = new_t
 
-            # Energy consumed this step (kWh)
-            step_kwh = _hvac_power_w(valve_pcts[zid], rated_kw / len(ZONE_IDS)) * (dt_seconds / 3600.0) * KWH_PER_WATT_HOUR
+            step_kwh = _hvac_power_w(valve_pcts[zid], rated_kw / len(sim_zones)) * (dt_seconds / 3600.0) * KWH_PER_WATT_HOUR
 
-            # Accumulate
             acc = zone_accum[zid]
             acc['sum_temp'] += new_t
             acc['max_temp'] = max(acc['max_temp'], new_t)
@@ -247,13 +250,12 @@ def run_simulation(
 
         zone_temps = new_temps
 
-        # Downsample: store every 15 minutes to keep payload small
         if step % 15 == 0:
             timeline.append(step_data)
 
     # Build summary
     summary: Dict[str, Any] = {}
-    for zid in ZONE_IDS:
+    for zid in sim_zones:
         acc = zone_accum[zid]
         comfort_pct = round(100.0 * acc['comfort_steps'] / max(steps, 1), 1)
         summary[zid] = {
@@ -279,6 +281,7 @@ def run_simulation(
             'window_open_zones': list(window_open_set),
             'steps_simulated': steps,
             'timeline_points': len(timeline),
+            'active_zones': sim_zones,
         },
         'timeline': timeline,
         'summary': summary,
