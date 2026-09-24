@@ -29,17 +29,23 @@ function updateCamerasLayout() {
 
   if (count === 2) {
     cameras.classList.add('layout-2');
-    cameraElements.forEach(el => el.style.gridArea = 'auto');
+    cameraElements.forEach((el, idx) => {
+      el.style.gridArea = 'unset';
+      el.style.gridRow = '1';
+      el.style.gridColumn = `${idx + 1}`;
+    });
   } else if (count >= 3) {
     cameras.classList.add('layout-quadrant');
     cameraElements.forEach(el => {
+      el.style.gridRow = 'unset';
+      el.style.gridColumn = 'unset';
       const select = el.querySelector('select');
       const zid = select ? select.value : '';
       if (zid === 'zone-1') el.style.gridArea = '1 / 1';       // North West (top-left)
       else if (zid === 'zone-2') el.style.gridArea = '1 / 2';  // North East (top-right)
       else if (zid === 'zone-3') el.style.gridArea = '2 / 1';  // South West (bottom-left)
       else if (zid === 'zone-4') el.style.gridArea = '2 / 2';  // South East (bottom-right)
-      else el.style.gridArea = 'auto';
+      else el.style.gridArea = 'unset';
     });
   }
 }
