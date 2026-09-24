@@ -82,4 +82,7 @@ class HVACConfigUpdate(BaseModel):
     max_airflow_cfm_per_vent: float | None = None
     supply_air_temp_c: float | None = None
     zone_vent_counts: dict[str, int] | None = None
+    zone_lighting_config: dict[str, dict] | None = None
+    zone_window_states: dict[str, str] | None = None
+
 

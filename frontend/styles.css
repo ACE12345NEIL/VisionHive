@@ -140,6 +140,14 @@ main{max-width:1440px;margin:auto;padding:32px 3vw 60px}
 .vent-item label{display:block;font-size:11px;color:var(--text-dim);margin-bottom:4px;}
 .vent-dropdown{background:#081211;color:var(--accent);border:1px solid var(--border);border-radius:6px;padding:6px;font-size:12px;width:100%;font-weight:600;}
 
+.lighting-selectors-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.lighting-item{background:var(--panel-alt);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;}
+.lighting-item label{display:block;color:var(--text-dim);margin-bottom:4px;font-weight:600;}
+.lighting-item-inputs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:4px;}
+.lighting-item-inputs input{background:#081211;color:var(--text);border:1px solid var(--border);border-radius:6px;padding:4px 6px;font-size:11px;}
+.window-warn-badge{background:rgba(245,158,11,0.15);color:var(--warning);border:1px solid rgba(245,158,11,0.4);padding:3px 8px;border-radius:6px;font-size:11px;font-weight:600;}
+
+
 /* Live Valve & Airflow Panel UI */
 .panel-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
 .badge{background:var(--accent-dim);color:var(--accent);border:1px solid var(--border-strong);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:600;}
