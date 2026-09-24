@@ -110,9 +110,128 @@
           <div class="empty-msg">Awaiting thermal response telemetry…</div>
         </div>
       </section>
+
+
+      <!-- Stage 20: Fast-Forward Simulation Engine -->
+
+      <section class="simulation-panel">
+
+        <h2>&#9193; Fast-Forward Simulation</h2>
+
+        <p class="sim-desc">Simulate up to 24 h of thermal dynamics in seconds.</p>
+
+        <form id="sim-form">
+
+          <div class="field-row">
+
+            <div class="field-group">
+
+              <label>Hours to Simulate</label>
+
+              <input type="number" id="sim-hours" min="1" max="24" value="24">
+
+            </div>
+
+            <div class="field-group">
+
+              <label>HVAC Setpoint (&#176;C)</label>
+
+              <input type="number" id="sim-setpoint" min="16" max="30" step="0.5" value="22.0">
+
+            </div>
+
+          </div>
+
+          <div class="field-row">
+
+            <div class="field-group">
+
+              <label>Outdoor Min (&#176;C)</label>
+
+              <input type="number" id="sim-t-min" min="10" max="40" step="1" value="22">
+
+            </div>
+
+            <div class="field-group">
+
+              <label>Outdoor Max (&#176;C)</label>
+
+              <input type="number" id="sim-t-max" min="10" max="50" step="1" value="35">
+
+            </div>
+
+          </div>
+
+          <div class="field-row">
+
+            <div class="field-group">
+
+              <label>Peak Solar (W/m&#178;)</label>
+
+              <input type="number" id="sim-solar" min="0" max="1200" step="50" value="600">
+
+            </div>
+
+            <div class="field-group">
+
+              <label>Activity Level</label>
+
+              <select id="sim-activity">
+
+                <option value="stationary">Stationary</option>
+
+                <option value="low" selected>Low</option>
+
+                <option value="medium">Medium</option>
+
+                <option value="high">High</option>
+
+              </select>
+
+            </div>
+
+          </div>
+
+          <div class="field-group">
+
+            <label>AC Enabled</label>
+
+            <select id="sim-ac">
+
+              <option value="true" selected>Yes</option>
+
+              <option value="false">No (Free-running)</option>
+
+            </select>
+
+          </div>
+
+          <button type="submit" class="save-btn" id="sim-run-btn" style="margin-top:12px;">&#9654; Run Simulation</button>
+
+        </form>
+
+        <div id="sim-status" style="margin-top:8px;font-size:0.82rem;color:#94a3b8;"></div>
+
+        <div id="sim-results" class="sim-results" style="display:none;">
+
+          <div id="sim-summary-cards" class="sim-summary-cards"></div>
+
+          <div id="sim-chart-container">
+
+            <canvas id="sim-chart" height="200"></canvas>
+
+          </div>
+
+        </div>
+
+      </section>
+
     </aside>
   </div>
 </main>
-<script src="/frontend/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+<script src="/frontend/app.js"></script>
+<script src="/frontend/simulation.js"></script>
 </body>
 </html>

@@ -27,6 +27,7 @@ from hvac.data import get_hvac_dataset_stats, load_hvac_config, save_hvac_config
 from hvac.control_engine import HVACControlEngine
 from ml.thermal_model import train_thermal_models
 from ml.energy_model import train_energy_model
+from simulation.engine import run_simulation
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(name)s: %(message)s')
 log = logging.getLogger('visionhive')
@@ -88,6 +89,27 @@ def health():
 def vision_performance():
     """Stage 19: Return vision pipeline performance metrics."""
     return profiler.get_metrics()
+
+@app.post('/api/simulation/run')
+async def run_simulation_api(payload: dict):
+    """Stage 20: Fast-forward simulation. POST JSON body to configure scenario."""
+    result = await asyncio.to_thread(
+        run_simulation,
+        hours=int(payload.get('hours', 24)),
+        dt_seconds=float(payload.get('dt_seconds', 60.0)),
+        initial_temps=payload.get('initial_temps'),
+        occupancy_schedule=payload.get('occupancy_schedule'),
+        device_loads_w=payload.get('device_loads_w'),
+        lighting_loads_w=payload.get('lighting_loads_w'),
+        outdoor_temp_min=float(payload.get('outdoor_temp_min', 22.0)),
+        outdoor_temp_max=float(payload.get('outdoor_temp_max', 35.0)),
+        peak_solar_w_m2=float(payload.get('peak_solar_w_m2', 600.0)),
+        hvac_setpoint_c=float(payload.get('hvac_setpoint_c', 22.0)),
+        ac_enabled=bool(payload.get('ac_enabled', True)),
+        window_open_zones=payload.get('window_open_zones', []),
+        activity_level=str(payload.get('activity_level', 'low')),
+    )
+    return result
 
 @app.get('/api/room')
 def room():
