@@ -79,8 +79,6 @@ Open **`http://127.0.0.1:8000`** in your browser to access the live dashboard.
 | High-Visibility Preview Bounding Boxes: Thick colored rectangles with filled background text pills for occupants, laptops, monitors, phones, and lights | ✅ Implemented |
 | Automated Window & Sunlight Infiltration Detection: Vision analysis of perimeter luminance glare and contrast | ✅ Implemented |
 | Vision Pipeline Performance Profiling: Per-frame latency timers, FPS tracking, occupancy heatmap via homography mapping | ✅ Implemented (Stage 19) |
-| Camera Homography Calibration Wizard | 🔮 Future Scope |
-| Automated Visual Anomaly / Intrusion Detection | 🔮 Future Scope |
 
 ### Domain 2: HVAC & Building Management System (BMS)
 
