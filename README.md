@@ -138,4 +138,6 @@ VisionHive/
 
 ---
 
-> **Update Policy:** This README is updated at the completion of every stage to reflect the latest implemented features and pending roadmap.
+## Images
+
+![Alt text](images_for_git\landing.jpeg)

@@ -1,8 +1,53 @@
 {
   "_comment": "VisionHive Digital Twin \u2014 customizable room layout. Positions in metres (x,y). Edit here or drag-and-drop in the Digital Twin UI.",
-  "vents": {},
-  "windows": {},
-  "doors": {},
+  "vents": {
+    "vent-3-2": {
+      "x": 1.15,
+      "y": 3.6
+    },
+    "vent-3-1": {
+      "x": 4.06,
+      "y": 5.13
+    },
+    "vent-4-1": {
+      "x": 7.05,
+      "y": 3.58
+    },
+    "vent-3-3": {
+      "x": 1.19,
+      "y": 5.08
+    },
+    "vent-3-5": {
+      "x": 6.96,
+      "y": 5.09
+    },
+    "vent-3-4": {
+      "x": 4.02,
+      "y": 3.6
+    }
+  },
+  "windows": {
+    "win-7623": {
+      "x1": 7.83,
+      "y1": 0,
+      "x2": 7.9,
+      "y2": 0,
+      "zone_id": "zone-2",
+      "wall": "north",
+      "width_m": 2
+    }
+  },
+  "doors": {
+    "door-1893": {
+      "x1": 0,
+      "y1": 3.17,
+      "x2": 0,
+      "y2": 3.9,
+      "zone_id": "zone-3",
+      "wall": "west",
+      "width_m": 0.73
+    }
+  },
   "workstations": {
     "desk-1": {
       "x": 1.8,
