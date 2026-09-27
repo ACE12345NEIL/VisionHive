@@ -140,4 +140,4 @@ VisionHive/
 
 ## Images
 
-![Alt text](images_for_git\landing.jpeg)
+![Landing Page](\images_for_git\landing.jpeg)
